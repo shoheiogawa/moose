@@ -165,8 +165,8 @@
 #include "DGFunctionConvectionDirichletBC.h"
 #include "CoupledKernelGradBC.h"
 
-#include "InterfaceDiffusion.h"
 #include "FluxFromMembrane.h"
+#include "InterfaceDiffusion.h"
 
 #include "ExplicitODE.h"
 #include "ImplicitODEx.h"
