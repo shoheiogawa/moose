@@ -5,7 +5,7 @@
 []
 
 [XFEM]
-  cut_data = '0.0 0.5 1.0 0.5 0 0'
+  geometric_cut_userobjects = 'line_seg_cut_uo'
   qrule = volfrac
   output_cut_plane = true
 []
@@ -21,6 +21,13 @@
   ymax = 1.0
   elem_type = QUAD4
   displacements = 'disp_x disp_y'
+[]
+
+[UserObjects]
+  [./line_seg_cut_uo]
+    type = LineSegmentCutUserObject
+    cut_data = '0.0 0.5 1.0 0.5'
+  [../]
 []
 
 [Variables]
@@ -158,7 +165,7 @@
 
 # controls for nonlinear iterations
   nl_max_its = 15
-  nl_rel_tol = 1e-12
+  nl_rel_tol = 1e-10
   nl_abs_tol = 1e-14
 
 # time control

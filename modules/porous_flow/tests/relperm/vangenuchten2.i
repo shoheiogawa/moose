@@ -1,6 +1,7 @@
 # Test van Genuchten relative permeability curve by varying saturation over the mesh
 # van Genuchten exponent m = 0.5 for both phases
-# Phase 0 residual saturation s0r = 0.25
+# Phase 0 residual saturation s0r = 0.2
+# Phase 1 residual saturation s1r = 0.3
 
 [Mesh]
   type = GeneratedMesh
@@ -99,6 +100,10 @@
     number_fluid_phases = 2
     number_fluid_components = 2
   [../]
+  [./pc]
+    type = PorousFlowCapillaryPressureConst
+    pc = 0
+  [../]
 []
 
 [Materials]
@@ -109,19 +114,21 @@
     type = PorousFlow2PhasePS
     phase0_porepressure = p0
     phase1_saturation = s1
+    capillary_pressure = pc
   [../]
   [./kr0]
     type = PorousFlowRelativePermeabilityVG
     phase = 0
-    m = 0.4
-    s_res = 0.25
-    sum_s_res = 0.25
+    m = 0.5
+    s_res = 0.2
+    sum_s_res = 0.5
   [../]
   [./kr1]
-    type = PorousFlowRelativePermeabilityCorey
+    type = PorousFlowRelativePermeabilityVG
     phase = 1
-    n = 2
-    sum_s_res = 0.25
+    m = 0.5
+    s_res = 0.3
+    sum_s_res = 0.5
   [../]
   [./kr_all]
     type = PorousFlowJoiner

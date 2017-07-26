@@ -26,7 +26,7 @@ public:
   virtual ~RateDepSmearIsoCrackModel();
 
 protected:
-  virtual void initStatefulProperties(unsigned int n_points);
+  virtual void initQpStatefulProperties();
   virtual void initVariables();
   /**
    * This function calculates rate of damage based on energy
@@ -41,7 +41,7 @@ protected:
   Real _upper_lim_damage;
 
   MaterialProperty<Real> & _energy;
-  MaterialProperty<Real> & _energy_old;
+  const MaterialProperty<Real> & _energy_old;
 
   Real _ddamage;
   Real _ddamagerate_drs;

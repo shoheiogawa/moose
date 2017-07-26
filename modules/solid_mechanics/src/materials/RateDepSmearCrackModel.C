@@ -45,9 +45,9 @@ RateDepSmearCrackModel::RateDepSmearCrackModel(const InputParameters & parameter
     _input_rndm_scale_var(getParam<bool>("input_random_scaling_var")),
     _rndm_scale_var(getParam<Real>("random_scaling_var")),
     _intvar(declareProperty<std::vector<Real>>("intvar")),
-    _intvar_old(declarePropertyOld<std::vector<Real>>("intvar")),
+    _intvar_old(getMaterialPropertyOld<std::vector<Real>>("intvar")),
     _stress_undamaged(declareProperty<SymmTensor>("stress_undamaged")),
-    _stress_undamaged_old(declarePropertyOld<SymmTensor>("stress_undamaged"))
+    _stress_undamaged_old(getMaterialPropertyOld<SymmTensor>("stress_undamaged"))
 {
 
   _intvar_incr.resize(_nstate, 0.0);
@@ -61,27 +61,19 @@ RateDepSmearCrackModel::RateDepSmearCrackModel(const InputParameters & parameter
 }
 
 void
-RateDepSmearCrackModel::initStatefulProperties(unsigned int n_points)
+RateDepSmearCrackModel::initQpStatefulProperties()
 {
-
-  for (unsigned int qp = 0; qp < n_points; qp++)
-  {
-
-    _intvar[qp].resize(_nstate, 0.0);
-    _intvar_old[qp].resize(_nstate, 0.0);
-  }
+  _intvar[_qp].resize(_nstate, 0.0);
+  const_cast<MaterialProperty<std::vector<Real>> &>(_intvar_old)[_qp].resize(_nstate, 0.0);
 }
 
 void
 RateDepSmearCrackModel::computeStress(const Elem & /*current_elem*/,
-                                      unsigned qp,
                                       const SymmElasticityTensor & elasticityTensor,
                                       const SymmTensor & stress_old,
                                       SymmTensor & strain_increment,
                                       SymmTensor & stress_new)
 {
-
-  _qp = qp;
   _elasticity = elasticityTensor;
   _stress_old = stress_old;
   _dstrain = strain_increment;
@@ -103,7 +95,7 @@ RateDepSmearCrackModel::computeStress(const Elem & /*current_elem*/,
     postSolveStress();
 
     stress_new = _stress_new;
-    _stress_undamaged[qp] = _stress0;
+    _stress_undamaged[_qp] = _stress0;
   }
 }
 

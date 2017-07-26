@@ -19,15 +19,10 @@ class ComputeVariableIsotropicElasticityTensor : public ComputeElasticityTensorB
 public:
   ComputeVariableIsotropicElasticityTensor(const InputParameters & parameters);
 
-  virtual bool isGuaranteedIsotropic() const override { return true; }
-
 protected:
   virtual void initialSetup() override;
   virtual void initQpStatefulProperties() override;
   virtual void computeQpElasticityTensor() override;
-
-  /// Store the old elasticity tensor to compute the stress correctly for incremental formulations
-  MaterialProperty<RankFourTensor> & _elasticity_tensor_old;
 
   /// Material defininig the Young's Modulus
   const MaterialProperty<Real> & _youngs_modulus;

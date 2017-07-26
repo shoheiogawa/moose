@@ -1,6 +1,30 @@
 #Capillary pressure
 
-A number of capillary pressure curves are available in Porous Flow.
+The capillary pressure is the pressure difference between two fluid phases in a porous
+medium that arises due to the interfacial tension between the fluid phases and the surface
+tension between fluids and the porous medium. Capillary pressure, $P_c$, is commonly
+defined as \citep{bear1972}
+\begin{equation}
+P_c = P_{nw} - P_w,
+\end{equation}
+where $P_{nw}$ is the pressure of the non-wetting phase (typically the gas phase), and  
+$P_w$ is the pressure of the wetting phase (typically the liquid phase).
+
+The capillary pressure is given by the Young-Laplace equation \citep{bear1972}
+\begin{equation}
+P_c = \frac{2 \gamma \cos(\theta)}{r_c},
+\end{equation}
+where $\gamma$ is the interfacial tension, $\theta$ is the contact angle of the
+wetting phase on the surface of the porous medium, and $r_c$ is the radius of curvature
+at the interface, see \citet{bear1972}.
+
+Due to the difficulty in measuring $\gamma$ and $\theta$ in real porous rocks, empirical and
+semi-impirical formulations for capillary pressure have been proposed that relate capillary
+pressure to effective saturation.
+
+Several capillary pressure formulations are available in the Porous Flow module suitable for
+either porepressure formulations (where effective saturation is calculated using capillary pressure), or porepressure-saturation formulations (where capillary pressure is calculated
+using the saturation).
 
 ## Constant
 [`PorousFlowCapillaryPressureConst`](/porous_flow/PorousFlowCapillaryPressureConst.md)
@@ -82,7 +106,23 @@ problems rarely explore the $S_{\mathrm{eff}}\sim 0$ region.
 
 !media media/porous_flow/van_genuchten_pc.png width=80% margin-left=10px caption=Three values of $m$ are shown: 0.5, 0.7 and 0.9 id=van_genuchten_pc
 
+##Brooks-Corey
+[`PorousFlowCapillaryPressureBC`](/porous_flow/PorousFlowCapillaryPressureBC.md)
+
+The Brooks-Corey capillary-pressure relationship is \citep{brookscorey1966}
+
+\begin{equation}
+S_{\mathrm{eff}} = \left( \frac{P_c}{P_e} \right)^{-\lambda},
+\end{equation}
+or
+\begin{equation}
+P_c = P_e S_{\mathrm{eff}}^{-1/\lambda},
+\end{equation}
+where $P_e$ is the threshold entry pressure, and $\lambda$ is a user-defined exponent. Brooks and Corey originally related the exponent $\lambda$ to the statistical distribution of pore sizes in the porous medium. A value of $\lambda$ less than 2 was suggested for narrow
+distributions of pore sizes, while a value of greater than 2 was suggested for broad distributions of pore sizes.
+
 ##Broadbridge-White
+[`PorousFlowCapillaryPressureBW`](/porous_flow/PorousFlowCapillaryPressureBW.md)
 
 The Broadbridge-White capillarity relationship valid for small $K_{n}$ is \citep{broadbridge1988}
 \begin{equation}
@@ -97,7 +137,11 @@ This is of limited use in real simulations, and is only used in the Porous
 Flow module for comparison with the analytical solutions of \citet{broadbridge1988} and
 \citet{warrick1990} for multi-phase infiltration and drainage problems.
 
+!!! note
+    Only effective saturation as a function of capillary pressure is available in `PorousFlowCapillaryPressureBW`
+
 ## Rogers-Stallybrass-Clements
+[`PorousFlowCapillaryPressureRSC`](/porous_flow/PorousFlowCapillaryPressureRSC.md)
 
 The Rogers-Stallybrass-Clements capillary relationship is \citep{rsc1983}
 \begin{equation}
@@ -108,6 +152,37 @@ when the oil viscosity is exactly twice the water viscosity.  This is
 of limited use in real simulations, and is only used in the Porous
 Flow module for comparison with the analytical solutions offered by
 the authors for multi-phase infiltration and drainage problems.
+
+!!! note
+    Only effective saturation as a function of capillary pressure is available in `PorousFlowCapillaryPressureBW`
+
+## Logarithmic extension at low liquid saturations
+
+Several of the capillary pressure formulations have capillary pressure and its
+derivative approach infinity while the liquid saturation approaches zero. While this
+is desirable for calculation of effective saturation as a function of capillary
+pressure, it is undesirable when calculating the capillary pressure numerically
+using saturation, often leading to numerical convergence issues.
+
+By default, the numerical implementations of the capillary pressure curves implement a
+hard maximum when the effective saturation decreases below 0 in order to avoid unphysical
+values of capillary pressure and its derivatives. While this approach does avoid infinite
+values, it can lead to numerical difficulties for saturations close to residual due to the
+discontinuous derivative of capillary pressure with respect to saturation.
+
+To overcome this, the logarithmic extension detailed by \citet{webb2000}
+is implemented for low saturations in formulations where capillary pressure approaches
+infinity for small liquid saturations. An extension to the raw capillary pressure
+curve
+\begin{equation}
+P_c = P_{c,max} 10^{m(S - S^*)}
+\end{equation}
+is used for saturations less than a value $S^*$. The value of $s^*$ is calculated so that the capillary pressure curve is continuous and smooth up to the maximum capillary pressure $P_{c,max}$, see \ref{pc_vg_logext} for an example for the van Genuchten capillary
+pressure, and \ref{pc_bc_logext} for the Brooks-Corey capillary pressure.
+
+!media media/porous_flow/pc_vg_logext.png width=80% margin-left=10px caption=Logarithmic extension to van Genuchten capillary pressure curve below residual saturation id=pc_vg_logext
+
+!media media/porous_flow/pc_bc_logext.png width=80% margin-left=10px caption=Logarithmic extension to Brooks-Corey capillary pressure curve below residual saturation id=pc_bc_logext
 
 ##References
 \bibliographystyle{unsrt}
