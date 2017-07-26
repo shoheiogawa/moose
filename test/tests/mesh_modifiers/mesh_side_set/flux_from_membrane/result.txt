@@ -1,0 +1,47 @@
+$> ../../../../moose_test-opt -i flux_from_membrane_interface_kernel.i
+
+Framework Information:
+MOOSE version:           git commit f326306 on 2017-07-10
+PETSc Version:           3.7.5
+Current Time:            Wed Jul 26 16:28:17 2017
+Executable Timestamp:    Wed Jul 26 16:13:24 2017
+
+Parallelism:
+  Num Processors:          1
+  Num Threads:             1
+
+Mesh:
+  Parallel Type:           replicated
+  Mesh Dimension:          3
+  Spatial Dimension:       3
+  Nodes:
+    Total:                 2969
+    Local:                 2969
+  Elems:
+    Total:                 12544
+    Local:                 12544
+  Num Subdomains:          3
+  Num Partitions:          1
+
+Nonlinear System:
+  Num DOFs:                3114
+  Num Local DOFs:          3114
+  Variables:               "c_volume" "c_plane"
+  Finite Element Types:    "LAGRANGE" "LAGRANGE"
+  Approximation Orders:    "FIRST" "FIRST"
+
+Execution Information:
+  Executioner:             Transient
+  TimeStepper:             ConstantDT
+  Solver Mode:             0
+  Preconditioner:          hypre boomeramg strong_threshold: 0.7 (auto)
+
+
+
+
+Time Step  0, time = 0
+                dt = 0
+
+Time Step  1, time = 0.01
+                dt = 0.01
+zsh: segmentation fault  ../../../../moose_test-opt -i flux_from_membrane_interface_kernel.i
