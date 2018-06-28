@@ -24,7 +24,7 @@ public:
 
 protected:
   virtual MarkerValue computeElementMarker() override;
-  virtual void markerSetup() override;
+  //virtual void markerSetup() override;
   bool searchForBoundaries(const Elem * elem, unsigned int range);
 
   MarkerValue _marker_value;

@@ -1,11 +1,6 @@
 [Mesh]
-  type = GeneratedMesh
-  dim = 2
-  nx = 10
-  ny = 10
-  nz = 0
-  zmax = 0
-  elem_type = QUAD4
+  type = FileMesh
+  file = square.e
 []
 
 [Variables]
@@ -40,17 +35,18 @@
 [Executioner]
   type = Steady
   solve_type = PJFNK
+  nl_rel_tol = 1e-04 # Large for adaptivity
 []
 
 [Adaptivity]
-  initial_steps = 2
-  initial_marker = left_boundary_marker
+  steps = 2
+  marker = left_top_boundary_marker
   [Markers]
-    [left_boundary_marker]
+    [left_top_boundary_marker]
       type = BoundaryMarker
-      distance = 0
+      range = 2
       mark = REFINE
-      boundaries = 'left'
+      boundaries = 'left top'
     []
   []
 []
@@ -58,3 +54,4 @@
 [Outputs]
   exodus = true
 []
+
