@@ -48,39 +48,49 @@ BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   }
 }
 
-void
-BoundaryMarker::markerSetup()
-{
-  // updating the boundary info everytime this marker works.
-  Marker::markerSetup(); 
-  _boundary_info = _mesh.getMesh().get_boundary_info();
-}
+//void
+//BoundaryMarker::markerSetup()
+//{
+//  // updating the boundary info everytime this marker works.
+//  Marker::markerSetup(); 
+//  _boundary_info = _mesh.getMesh().get_boundary_info();
+//}
 
 bool
 BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
 {
-  // loop over sides of the current elem
-  for (unsigned int side = 0; side < elem->n_sides(); side++)
+  // // loop over sides of the current elem
+  // for (unsigned int side = 0; side < elem->n_sides(); side++)
+
+  // loop over nodes of the current elem
+  for (unsigned int node = 0; node < _current_elem->n_nodes(); node++)
   {
-    std::cout << "  side id / n_sides: " << side << "/" << elem->n_sides() << std::endl;
     // loop over all the boundary ids that you are looking for
     for (auto boundary_id : _mark_boundary_ids)
     {
-      std::cout<< "    boundary id : " << boundary_id << std::endl; 
-      // check if the current side has same boundary id that you are looking for
-      if (_boundary_info.has_boundary_id(elem, side, boundary_id))
+      // // check if the current side has same boundary id that you are looking for
+      // if (_boundary_info.has_boundary_id(elem, side, boundary_id))
+      
+      // check if the current node is on the boundary that you are looking for
+      if (_boundary_info.has_boundary_id(_current_elem->get_node(node), boundary_id))
       {
-        std::cout << "Found the boundaries!" << std::endl;
         return true;
       }
     }
-    if (range > 0) // If range is 0, it means the current exploring is the last on this route.
+  }
+
+  // If range is equal to the nubmer of elements to refine.
+  // If it is 1, you don't go to neighbors' elements for the boundary search.
+  if (range > 1) 
+  {
+    for (unsigned int side = 0; side < elem->n_sides(); side++)
     {
       const Elem * neighbor_elem = elem->neighbor_ptr(side);
       if (neighbor_elem != NULL)
       {
-        bool found_boundaries = searchForBoundaries(neighbor_elem, range - 1);
-        if (found_boundaries)
+        // Checking the neighbor elements.
+        // range - 1 because this jump to the neighbor.
+        if(searchForBoundaries(neighbor_elem, range - 1))
           return true;
       }
     }
