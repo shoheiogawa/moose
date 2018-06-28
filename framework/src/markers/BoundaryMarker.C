@@ -32,7 +32,7 @@ validParams<BoundaryMarker>()
 
 BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   : Marker(parameters),
-    _marker_value((MarkerValue)(int)parameters.get<MooseEnum>("mark")),
+    _marker_value((MarkerValue)(int)getParam<MooseEnum>("mark")),
     _boundary_info(_mesh.getMesh().get_boundary_info()),
     _range(getParam<unsigned int>("range"))
 {
