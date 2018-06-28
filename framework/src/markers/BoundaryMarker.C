@@ -17,7 +17,7 @@ validParams<BoundaryMarker>()
 {
   InputParameters params = validParams<Marker>();
   params.addRequiredParam<unsigned int>(
-      "distance", "Integer value within which number of elements to be refined.");
+      "range", "Integer value within which number of elements to be refined.");
   params.addRequiredParam<std::vector<BoundaryName>>(
       "boundaries", "The names of the boundary to mark neighbors.");
 
@@ -26,13 +26,15 @@ validParams<BoundaryMarker>()
       "mark", marker_states, "How to mark elements near the boundaries.");
 
   params.addClassDescription(
-      "Marks elements within 'distance' elements from the boundary.");
+      "Marks elements within 'range' elements from the boundary.");
   return params;
 }
 
 BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   : Marker(parameters),
-    _marker_value((MarkerValue)(int)parameters.get<MooseEnum>("mark"))
+    _marker_value((MarkerValue)(int)parameters.get<MooseEnum>("mark")),
+    _boundary_info(_mesh.getMesh().get_boundary_info()),
+    _range(getParam<unsigned int>("range"))
 {
   if (isParamValid("boundaries"))
   {
@@ -46,28 +48,51 @@ BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   }
 }
 
-//void
-//BoundaryMarker::markerSetup()
-//{
-//}
+void
+BoundaryMarker::markerSetup()
+{
+  // updating the boundary info everytime this marker works.
+  Marker::markerSetup(); 
+  _boundary_info = _mesh.getMesh().get_boundary_info();
+}
+
+bool
+BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
+{
+  // loop over sides of the current elem
+  for (unsigned int side = 0; side < elem->n_sides(); side++)
+  {
+    std::cout << "  side id / n_sides: " << side << "/" << elem->n_sides() << std::endl;
+    // loop over all the boundary ids that you are looking for
+    for (auto boundary_id : _mark_boundary_ids)
+    {
+      std::cout<< "    boundary id : " << boundary_id << std::endl; 
+      // check if the current side has same boundary id that you are looking for
+      if (_boundary_info.has_boundary_id(elem, side, boundary_id))
+      {
+        std::cout << "Found the boundaries!" << std::endl;
+        return true;
+      }
+    }
+    if (range > 0) // If range is 0, it means the current exploring is the last on this route.
+    {
+      const Elem * neighbor_elem = elem->neighbor_ptr(side);
+      if (neighbor_elem != NULL)
+      {
+        bool found_boundaries = searchForBoundaries(neighbor_elem, range - 1);
+        if (found_boundaries)
+          return true;
+      }
+    }
+  }
+  return false;
+}
 
 Marker::MarkerValue
 BoundaryMarker::computeElementMarker()
 {
-  auto & boundary_info = _mesh.getMesh().get_boundary_info();
-
-  // loop over sides of the current elem
-  for (unsigned int side = 0; side < _current_elem->n_sides(); side++)
-  {
-    // loop over all the boundary ids that you are looking for
-    for (auto boundary_id : _mark_boundary_ids)
-    {
-      // check if the current side has same boundary id that you are looking for
-      if (boundary_info.has_boundary_id(_current_elem, side, boundary_id))
-      {
-        return _marker_value;
-      }
-    }
-  }
-  return DO_NOTHING;
+  if (searchForBoundaries(_current_elem, _range))
+    return _marker_value;
+  else
+    return DO_NOTHING;
 }
