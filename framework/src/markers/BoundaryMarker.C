@@ -63,7 +63,7 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
   // for (unsigned int side = 0; side < elem->n_sides(); side++)
 
   // loop over nodes of the current elem
-  for (unsigned int node = 0; node < _current_elem->n_nodes(); node++)
+  for (unsigned int node = 0; node < elem->n_nodes(); node++)
   {
     // loop over all the boundary ids that you are looking for
     for (auto boundary_id : _mark_boundary_ids)
@@ -72,7 +72,7 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
       // if (_boundary_info.has_boundary_id(elem, side, boundary_id))
       
       // check if the current node is on the boundary that you are looking for
-      if (_boundary_info.has_boundary_id(_current_elem->get_node(node), boundary_id))
+      if (_boundary_info.has_boundary_id(elem->get_node(node), boundary_id))
       {
         return true;
       }
@@ -87,12 +87,13 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
     {
       const Elem * neighbor_elem = elem->neighbor_ptr(side);
       if (neighbor_elem != NULL)
-      {
-        // Checking the neighbor elements.
-        // range - 1 because this jump to the neighbor.
-        if(searchForBoundaries(neighbor_elem, range - 1))
-          return true;
-      }
+        if (elem->subdomain_id() == neighbor_elem->subdomain_id())
+        {
+          // Checking the neighbor elements.
+          // range - 1 because this jump to the neighbor.
+          if(searchForBoundaries(neighbor_elem, range - 1))
+            return true;
+        }
     }
   }
   return false;
@@ -106,3 +107,4 @@ BoundaryMarker::computeElementMarker()
   else
     return DO_NOTHING;
 }
+
