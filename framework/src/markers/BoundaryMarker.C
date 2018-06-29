@@ -17,16 +17,16 @@ validParams<BoundaryMarker>()
 {
   InputParameters params = validParams<Marker>();
   params.addRequiredParam<unsigned int>(
-      "range", "Integer value within which number of elements to be refined.");
+      "depth", "Number of elements refined from the boundaries.");
   params.addRequiredParam<std::vector<BoundaryName>>(
-      "boundaries", "The names of the boundary to mark neighbors.");
+      "boundaries", "Names of the boundary with which the marker marks neighbor elements.");
 
   MooseEnum marker_states = Marker::markerStates();
   params.addRequiredParam<MooseEnum>(
       "mark", marker_states, "How to mark elements near the boundaries.");
 
   params.addClassDescription(
-      "Marks elements within 'range' elements from the boundary.");
+      "Marks elements within 'depth' elements from selected boundaries in selected blocks.");
   return params;
 }
 
@@ -34,8 +34,13 @@ BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   : Marker(parameters),
     _marker_value((MarkerValue)(int)getParam<MooseEnum>("mark")),
     _boundary_info(_mesh.getMesh().get_boundary_info()),
-    _range(getParam<unsigned int>("range"))
+    _depth(getParam<unsigned int>("depth"))
 {
+  // If this marker just marks elements next to selected boundaries, i.e. depth = 0,
+  // it should work with a distributed mesh.
+  if (_depth > 1)
+    _mesh.errorIfDistributedMesh("BoundaryMarker");
+
   if (isParamValid("boundaries"))
   {
     auto & boundary_names = getParam<std::vector<BoundaryName>>("boundaries");
@@ -48,16 +53,8 @@ BoundaryMarker::BoundaryMarker(const InputParameters & parameters)
   }
 }
 
-//void
-//BoundaryMarker::markerSetup()
-//{
-//  // updating the boundary info everytime this marker works.
-//  Marker::markerSetup(); 
-//  _boundary_info = _mesh.getMesh().get_boundary_info();
-//}
-
 bool
-BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
+BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int depth)
 {
   // // loop over sides of the current elem
   // for (unsigned int side = 0; side < elem->n_sides(); side++)
@@ -70,7 +67,7 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
     {
       // // check if the current side has same boundary id that you are looking for
       // if (_boundary_info.has_boundary_id(elem, side, boundary_id))
-      
+
       // check if the current node is on the boundary that you are looking for
       if (_boundary_info.has_boundary_id(elem->get_node(node), boundary_id))
       {
@@ -79,9 +76,9 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
     }
   }
 
-  // If range is equal to the nubmer of elements to refine.
+  // The `depth` is equal to the nubmer of elements to refine.
   // If it is 1, you don't go to neighbors' elements for the boundary search.
-  if (range > 1) 
+  if (depth > 1)
   {
     for (unsigned int side = 0; side < elem->n_sides(); side++)
     {
@@ -89,9 +86,11 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
       if (neighbor_elem != NULL)
         if (elem->subdomain_id() == neighbor_elem->subdomain_id())
         {
-          // Checking the neighbor elements.
-          // range - 1 because this jump to the neighbor.
-          if(searchForBoundaries(neighbor_elem, range - 1))
+          // Checking the neighbor elements recursively.
+          // If the function below eventually returns a true value in a recursive calling,
+          // the true value is returned to the if statement in the computeElementMarker() member function.
+          // depth - 1 because this jump to the neighbor.
+          if (searchForBoundaries(neighbor_elem, depth - 1))
             return true;
         }
     }
@@ -102,7 +101,7 @@ BoundaryMarker::searchForBoundaries(const Elem * elem, unsigned int range)
 Marker::MarkerValue
 BoundaryMarker::computeElementMarker()
 {
-  if (searchForBoundaries(_current_elem, _range))
+  if (searchForBoundaries(_current_elem, _depth))
     return _marker_value;
   else
     return DO_NOTHING;
