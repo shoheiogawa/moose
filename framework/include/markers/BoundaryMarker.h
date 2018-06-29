@@ -25,13 +25,13 @@ public:
 protected:
   virtual MarkerValue computeElementMarker() override;
   //virtual void markerSetup() override;
-  bool searchForBoundaries(const Elem * elem, unsigned int range);
+  bool searchForBoundaries(const Elem * elem, unsigned int depth);
 
   MarkerValue _marker_value;
   std::set<BoundaryID> _mark_boundary_ids;
   BoundaryInfo & _boundary_info;
 
-  unsigned int _range;
+  unsigned int _depth;
 };
 
 #endif /* BOUNDARY_MARKER_H */
