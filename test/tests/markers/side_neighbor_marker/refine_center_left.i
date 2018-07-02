@@ -40,16 +40,16 @@
 
 [Adaptivity]
   steps = 2
-  marker = mark_right_near_center
+  marker = mark_center_left
   initial_steps = 0
-  initial_marker = mark_right_near_center
+  initial_marker = mark_center_left
   [Markers]
-    [mark_right_near_center]
-      type = BoundaryMarker
-      block = 'right'
-      range = 2
+    [mark_center_left]
+      type = SideNeighborMarker
+      block = 'left'
+      depth = 2
       mark = REFINE
-      boundaries = 'center'
+      sidesets = 'center'
     []
   []
 []

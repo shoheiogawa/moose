@@ -7,31 +7,29 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BOUNDARY_MARKER_H
-#define BOUNDARY_MARKER_H
+#ifndef SIDE_NEIGHBOR_MARKER_H
+#define SIDE_NEIGHBOR_MARKER_H
 
 #include "Marker.h"
 
-class BoundaryMarker;
+class SideNeighborMarker;
 
 template <>
-InputParameters validParams<BoundaryMarker>();
+InputParameters validParams<SideNeighborMarker>();
 
-class BoundaryMarker : public Marker
+class SideNeighborMarker : public Marker
 {
 public:
-  BoundaryMarker(const InputParameters & parameters);
+  SideNeighborMarker(const InputParameters & parameters);
 
 protected:
   virtual MarkerValue computeElementMarker() override;
-  //virtual void markerSetup() override;
-  bool searchForBoundaries(const Elem * elem, unsigned int depth);
+  bool searchForSidesets(const Elem * elem, unsigned int depth);
 
   MarkerValue _marker_value;
-  std::set<BoundaryID> _mark_boundary_ids;
-  BoundaryInfo & _boundary_info;
+  std::set<BoundaryID> _mark_sideset_ids;
 
   unsigned int _depth;
 };
 
-#endif /* BOUNDARY_MARKER_H */
+#endif /* SIDE_NEIGHBOR_MARKER_H */
