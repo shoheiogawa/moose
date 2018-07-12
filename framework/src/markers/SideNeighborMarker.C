@@ -33,6 +33,7 @@ validParams<SideNeighborMarker>()
 SideNeighborMarker::SideNeighborMarker(const InputParameters & parameters)
   : Marker(parameters),
     _marker_value((MarkerValue)(int)getParam<MooseEnum>("mark")),
+    _boundary_info(_mesh.getMesh().get_boundary_info()),
     _depth(getParam<unsigned int>("depth"))
 {
   // If this marker just marks elements next to selected sidesets, i.e. depth = 0,
@@ -55,8 +56,9 @@ SideNeighborMarker::SideNeighborMarker(const InputParameters & parameters)
 bool
 SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
 {
-  bool use_node = false;
-  bool use_elem = true;
+  bool use_node = true;
+  bool use_elem = false;
+  bool use_side = false;
 
   if (use_node)
     // loop over nodes of the current elem
@@ -71,6 +73,13 @@ SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
     for (auto sideset_id : _mark_sideset_ids)
       if (_mesh.isBoundaryElem(elem->id(), sideset_id))
         return true;
+
+  if (use_side)
+    for (unsigned int side = 0; side < elem->n_sides(); side++)
+      for (auto boundary_id : _mark_sideset_ids)
+        // check if the current side has same boundary id that you are looking for
+        if (_boundary_info.has_boundary_id(elem, side, boundary_id))
+          return true;
 
   // The `depth` is equal to the nubmer of elements to refine.
   // If it is 1, you don't go to neighbors' elements for the sideset search.
