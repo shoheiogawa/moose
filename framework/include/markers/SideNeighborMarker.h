@@ -28,6 +28,7 @@ protected:
 
   MarkerValue _marker_value;
   std::set<BoundaryID> _mark_sideset_ids;
+  BoundaryInfo & _boundary_info;
 
   unsigned int _depth;
 };
