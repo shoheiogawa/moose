@@ -25,11 +25,14 @@ public:
   ParametricStudyAux(const InputParameters & parameters);
 
 protected:
+  virtual void timestepSetup() override; // Showing the parameter studied in each time step.
   virtual Real computeValue() override;
 
   std::vector<Real> _value_list;
   std::vector<Real> _range_func_args;
   Real _tolerance;
+
+  MooseEnum _sort;
 };
 
 #endif // PARAMETRIC_STUDY_AUX_H
