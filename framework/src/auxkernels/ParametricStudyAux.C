@@ -32,12 +32,12 @@ validParams<ParametricStudyAux>()
                                      "the values which you want to set to the aux variable."
                                      "Three Real values should be given: start end increment");
 
-  params.addParam<Real>("tolerance", "The tolerance value for indexing, "
-                        " e.g. t = 1.0 should correspond to an unsigned integer 1.");
-
   MooseEnum order("ascending descending");
   params.addParam<MooseEnum>("sort", order, "Sorting order for the params. If it is not specified, "
                                             "the parameters are the list + the range function results.");
+
+  params.addParam<bool>("unique", true, "Set true to make all the parameters unique.");
+  params.addParam<Real>("unique_tolerance", 1e-12, "Tolerance to find two values in the list the same.");
 
   // Parameters have to be set at the beginning of each time step because it uses the time value for indexing.
   params.set<ExecFlagEnum>("execute_on") = "TIMESTEP_BEGIN";
@@ -49,8 +49,9 @@ ParametricStudyAux::ParametricStudyAux(const InputParameters & parameters)
 : AuxKernel(parameters),
   _value_list(getParam<std::vector<Real>>("value_list")),
   _range_func_args(getParam<std::vector<Real>>("range_func")),
-  _tolerance(getParam<Real>("tolerance")),
-  _sort(getParam<MooseEnum>("sort"))
+  _sort(getParam<MooseEnum>("sort")),
+  _unique_list(getParam<bool>("unique")),
+  _unique_tolerance(getParam<Real>("unique_tolerance"))
 {
   // The simulation has to be transient for indexing.
   if (!(_subproblem.isTransient()))
@@ -70,15 +71,12 @@ ParametricStudyAux::ParametricStudyAux(const InputParameters & parameters)
     Real end_value   = _range_func_args[1];
     Real increment   = _range_func_args[2];
 
-    if (start_value > end_value)
-      mooseError("The start value is larger than the end value.");
+    Real num_of_params_to_generate = (end_value - start_value) / increment;
+    if (num_of_params_to_generate < 1.0)
+      mooseError("No sweep parameter is generated using `range_func` parameter.");
 
-    Real value = start_value;
-    while (value < end_value)
-    {
-      _value_list.push_back(value);
-      value += increment;
-    }
+    for (unsigned int i = 0; i <= (unsigned int)num_of_params_to_generate; ++i)
+      _value_list.push_back(start_value + i * increment);
   }
 
   if (isParamValid("sort"))
@@ -91,11 +89,14 @@ ParametricStudyAux::ParametricStudyAux(const InputParameters & parameters)
       mooseError("sort parameter is wrong in ParametricStudyAux.");
   }
 
-  // Remove consecutive duplicates in range because if we study for the same parameter,
-  // the simulation fails because the solution doesn't change at all for the second instance of the same parameter.
-  std::vector<Real>::iterator it;
-  it = std::unique(_value_list.begin(), _value_list.end(), [](Real a, Real b) {return std::fabs(a - b) < 1e-15;});
-  _value_list.resize(std::distance(_value_list.begin(), it));
+  if (_unique_list)
+  {
+    // Remove consecutive duplicates in range because if we study for the same parameter,
+    // the simulation fails because the solution doesn't change at all for the second instance of the same parameter.
+    std::vector<Real>::iterator it;
+    it = std::unique(_value_list.begin(), _value_list.end(), [this](Real a, Real b) {return std::fabs(a - b) < _unique_tolerance;});
+    _value_list.resize(std::distance(_value_list.begin(), it));
+  }
 
   // Check if end_time given to the executioner is large enough to study all the parameters.
   Transient * transient_executioner = dynamic_cast<Transient *>(_app.getExecutioner());
@@ -104,12 +105,6 @@ ParametricStudyAux::ParametricStudyAux(const InputParameters & parameters)
   else
   {
     transient_executioner->endTime() = static_cast<Real>(_value_list.size());
-
-    // Those below are not necessary if the simulation end time is set by this kernel.
-    //if ((transient_executioner->endTime() + _tolerance) < static_cast<Real>(_value_list.size()))
-    //  mooseWarning("end_time in Executioner block is too small to study all the parameters.");
-    //if ((transient_executioner->endTime() + _tolerance) > (static_cast<Real>(_value_list.size()) + 1.0))
-    //  mooseWarning("end_time in Executioner block is too big for the number of parameters.");
   }
 
   _console << "Parameters for " + _var.name() << " : ";
@@ -120,15 +115,15 @@ ParametricStudyAux::ParametricStudyAux(const InputParameters & parameters)
 void
 ParametricStudyAux::timestepSetup()
 {
-  unsigned int index = static_cast<unsigned int>(_t - _tolerance);
+  unsigned int index = static_cast<unsigned int>(_t - 1e-15);
   _console << "Parametric study : " + _var.name() << " = " << _value_list[index] << " at time = " << _t << "\n";
-  if (_t + 1e-14 < ceil(_t - 1e-14))
-    _console << "(This time step is an intermediate step for mesh refinement.)\n";
+  if (_t + 1e-15 < ceil(_t - 1e-15))
+    _console << "(This time step is intermediate for mesh refinement.)\n";
 }
 
 Real
 ParametricStudyAux::computeValue()
 {
-  unsigned int index = static_cast<unsigned int>(_t - _tolerance);
+  unsigned int index = static_cast<unsigned int>(_t - 1e-15);
   return _value_list[index];
 }
