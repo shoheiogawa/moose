@@ -89,6 +89,7 @@ SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
     {
       const Elem * neighbor_elem = elem->neighbor_ptr(side);
       if (neighbor_elem != NULL)
+      {
         if (elem->subdomain_id() == neighbor_elem->subdomain_id())
         {
           // Check the neighbor elements recursively.
@@ -98,6 +99,7 @@ SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
           if (searchForSidesets(neighbor_elem, depth - 1))
             return true;
         }
+      }
     }
   }
   return false;
