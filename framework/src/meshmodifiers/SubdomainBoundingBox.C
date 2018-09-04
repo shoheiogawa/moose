@@ -30,6 +30,10 @@ validParams<SubdomainBoundingBox>()
                                        "Subdomain id to set for inside/outside the bounding box");
   params.addParam<SubdomainName>(
       "block_name", "Subdomain name to set for inside/outside the bounding box (optional)");
+  params.addParam<std::vector<SubdomainName>>(
+      "target_block_names", "Target subdomain names to which this mesh modifier works (optional)");
+  params.addParam<std::vector<SubdomainID>>(
+      "target_block_ids", "Target subdomain IDs to which this mesh modifier works (optional)");
   params.addParam<MooseEnum>(
       "location", location, "Control of where the subdomain id is to be set");
 
@@ -43,6 +47,17 @@ SubdomainBoundingBox::SubdomainBoundingBox(const InputParameters & parameters)
     _bounding_box(parameters.get<RealVectorValue>("bottom_left"),
                   parameters.get<RealVectorValue>("top_right"))
 {
+  if (isParamValid("target_block_ids") && isParamValid("target_block_names"))
+    mooseError("You must supply exactly one of target_block_ids or target_block_names.");
+  if (isParamValid("target_block_ids"))
+  {
+    _target_block_ids = getParam<std::vector<SubdomainID>>("target_block_ids");
+  }
+  else if (isParamValid("target_block_names"))
+  {
+    _target_block_names = getParam<std::vector<SubdomainName>>("target_block_names");
+    _target_block_ids = _mesh_ptr->getSubdomainIDs(_target_block_names);
+  }
 }
 
 void
@@ -55,6 +70,12 @@ SubdomainBoundingBox::modify()
   // Loop over the elements
   for (const auto & elem : _mesh_ptr->getMesh().active_element_ptr_range())
   {
+    // If subdomain IDs are available and the current element's ID is not one of them, skip this element.
+    if (!_target_block_ids.empty())
+    {
+      if (std::find(_target_block_ids.begin(), _target_block_ids.end(), elem->subdomain_id()) == _target_block_ids.end())
+        continue;
+    }
     bool contains = _bounding_box.contains_point(elem->centroid());
     if (contains && _location == "INSIDE")
       elem->subdomain_id() = _block_id;
