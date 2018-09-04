@@ -12,7 +12,7 @@
   [create_on_left]
     type = SideNeighborSubdomain
     sidesets = 'left'
-    block_id = 1000
-    block_name = 'on_left'
+    new_subdomain_id = 1000
+    new_subdomain_name = 'on_left'
   []
 []

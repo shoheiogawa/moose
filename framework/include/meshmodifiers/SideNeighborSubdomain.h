@@ -28,8 +28,13 @@ public:
   virtual void modify() override;
 
 private:
-  /// Block ID to assign to the region
-  SubdomainID _block_id;
+
+  // SubdomainID and SubdomainName are to find which subdomains this mesh modifier works to.
+  std::vector<SubdomainID> _subdomain_ids;
+  std::vector<SubdomainName> _subdomain_names;
+
+  // Subdomain ID to assign to the newly created subdomain.
+  SubdomainID _new_subdomain_id;
 };
 
 #endif // SIDE_NEIGHBOR_SUBDOMAIN_H
