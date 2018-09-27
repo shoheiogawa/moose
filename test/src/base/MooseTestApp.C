@@ -91,6 +91,7 @@ MooseTestApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
   registerSyntax("ConvDiffMetaAction", "ConvectionDiffusion");
   registerSyntaxTask("AddAuxVariableAction", "MoreAuxVariables/*", "add_aux_variable");
   registerSyntaxTask("AddLotsOfAuxVariablesAction", "LotsOfAuxVariables/*", "add_variable");
+  registerSyntaxTask("AddBlockDeleterMeshModifierWithRegExAction", "AddBlockDeleterMeshModifierWithRegEx/*", "add_mesh_modifier");
 
   registerSyntax("ApplyCoupledVariablesTestAction", "ApplyInputParametersTest");
   registerSyntax("AddLotsOfDiffusion", "Testing/LotsOfDiffusion/*");
