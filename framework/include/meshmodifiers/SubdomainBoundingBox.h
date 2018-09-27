@@ -48,8 +48,6 @@ private:
 
   /// Bounding box for testing element centroids against
   BoundingBox _bounding_box;
-  std::vector<SubdomainName> _target_block_names;
-  std::vector<SubdomainID> _target_block_ids;
 };
 
 #endif // SUBDOMAINBOUDINGBOX_H

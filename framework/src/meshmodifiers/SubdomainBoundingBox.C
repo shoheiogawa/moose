@@ -47,17 +47,6 @@ SubdomainBoundingBox::SubdomainBoundingBox(const InputParameters & parameters)
     _bounding_box(parameters.get<RealVectorValue>("bottom_left"),
                   parameters.get<RealVectorValue>("top_right"))
 {
-  if (isParamValid("target_block_ids") && isParamValid("target_block_names"))
-    mooseError("You must supply exactly one of target_block_ids or target_block_names.");
-  if (isParamValid("target_block_ids"))
-  {
-    _target_block_ids = getParam<std::vector<SubdomainID>>("target_block_ids");
-  }
-  else if (isParamValid("target_block_names"))
-  {
-    _target_block_names = getParam<std::vector<SubdomainName>>("target_block_names");
-    _target_block_ids = _mesh_ptr->getSubdomainIDs(_target_block_names);
-  }
 }
 
 void
@@ -67,13 +56,29 @@ SubdomainBoundingBox::modify()
   if (!_mesh_ptr)
     mooseError("_mesh_ptr must be initialized before calling SubdomainBoundingBox::modify()");
 
+  std::vector<SubdomainName> target_block_names;
+  std::vector<SubdomainID> target_block_ids;
+  if (isParamValid("target_block_ids") && isParamValid("target_block_names"))
+    mooseError("You must supply exactly one of target_block_ids or target_block_names.");
+  if (isParamValid("target_block_ids"))
+  {
+    target_block_ids = getParam<std::vector<SubdomainID>>("target_block_ids");
+  }
+  else if (isParamValid("target_block_names"))
+  {
+    target_block_names = getParam<std::vector<SubdomainName>>("target_block_names");
+    target_block_ids = _mesh_ptr->getSubdomainIDs(target_block_names);
+  }
+
   // Loop over the elements
   for (const auto & elem : _mesh_ptr->getMesh().active_element_ptr_range())
   {
-    // If subdomain IDs are available and the current element's ID is not one of them, skip this element.
-    if (!_target_block_ids.empty())
+    // If subdomain IDs are available, look for the current element ID in them.
+    if (!target_block_ids.empty())
     {
-      if (std::find(_target_block_ids.begin(), _target_block_ids.end(), elem->subdomain_id()) == _target_block_ids.end())
+      bool id_found = std::find(target_block_ids.begin(), target_block_ids.end(), elem->subdomain_id()) != target_block_ids.end();
+      // If the current element's ID is not one of them, skip this element right now.
+      if (!id_found)
         continue;
     }
     bool contains = _bounding_box.contains_point(elem->centroid());
@@ -87,3 +92,4 @@ SubdomainBoundingBox::modify()
   if (isParamValid("block_name"))
     _mesh_ptr->getMesh().subdomain_name(_block_id) = getParam<SubdomainName>("block_name");
 }
+
