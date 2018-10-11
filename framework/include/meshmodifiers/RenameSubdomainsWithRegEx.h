@@ -35,6 +35,7 @@ protected:
 private:
   std::string _input_subdomain_name;
   std::string _output_subdomain_name;
+  unsigned int _num_of_replace;
   bool _as_int;
   bool _as_float;
 };
