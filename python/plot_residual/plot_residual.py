@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
 import re
 import argparse
 import copy
 import matplotlib.pyplot as plt
 from matplotlib import rcParams, rc
 from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import MaxNLocator
 
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Arial']
@@ -16,9 +16,30 @@ rc('font', **font)
 figsize = (4,3)
 rcParams["legend.framealpha"] = 1.0
 rcParams["legend.frameon"] = False
-line_style_list = ["k-", "b--", "r:", "g-.", "b--x", "r:x", "g-.x", "b--o", "r:o", "g-.o",]
 
-#floating_point_regex = r"[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"
+# nl plot settings
+line_style_list_nl_plot = ["k-", "b--", "r:", "g-.", "k-x", "b--x", "r:x", "g-.x", "k-o", "b--o", "r:o", "g-.o"]
+
+# nl plot legend
+ncol_nl_plot = 2
+legend_loc_nl_plot = "upper center"
+bbox_to_anchor_nl_plot = (0.5, 1.25, 0.001, 0.01)
+
+# nl plot axis
+xlabel_nl_plot = "Non-linear step"
+ylabel_nl_plot = "$|L|_2$ residual"
+
+# lin plot settings
+line_style_list_lin_plot = ["b--", "b-.", "b:", "b-", "r--", "r-.", "r:", "r-:", "k-.", "b-.", "r-.", "g-.",]
+
+# lin plot axis
+ncol_lin_plot = 3
+legend_loc_lin_plot = legend_loc_nl_plot
+bbox_to_anchor_lin_plot = (0.5, 1.25, 0.001, 0.01)
+
+# lin plot axis
+xlabel_lin_plot = "Linear step"
+ylabel_lin_plot = "$|L|_2$ residual"
 
 def read_console_output_file(input_file_path):
     with open(input_file_path, 'r') as input_file:
@@ -39,7 +60,7 @@ def get_repeated_patterns(input_string, regex_string):
     return pattern_output
 
 def get_time_step_and_time(input_string):
-    regex_string = r"Time Step (\d+), time = (\d+).*?"
+    regex_string = r"Time Step (\d+), time = ([\d.]+).*?"
     results = re.findall(regex_string, input_string)
     return int(results[0][0]), float(results[0][1])
 
@@ -83,6 +104,8 @@ def get_plot_func_nl(args):
             plot_func = plt.semilogx
         elif nl_plot_type == "semilogy":
             plot_func = plt.semilogy
+        elif nl_plot_type == "plot":
+            plot_func = plt.plot
         else:
             ValueError("Argument for --nl_plot_path is not valid.")
     else:
@@ -98,42 +121,48 @@ def get_plot_func_lin(args):
             plot_func = plt.semilogx
         elif lin_plot_type == "semilogy":
             plot_func = plt.semilogy
+        elif lin_plot_type == "plot":
+            plot_func = plt.plot
         else:
             ValueError("Argument for --lin_plot_path is not valid.")
     else:
         plot_func = plt.plot
     return plot_func
 
-def plot_one_data(args, one_data):
-    # nl plot
+def plot_one_data_nl(args, one_data):
     fig, ax = plt.subplots(figsize=figsize)
     nl_step_list = one_data["nl_step_list"]
     nl_res_list = one_data["nl_res_list"]
-    line_style_list = ["k-", "b--", "r:", "g-.", "k-x", "b--x", "r:x", "g-.x", "k-o", "b--o", "r:o", "g-.o"]
     line_counter = 0
     plot_func_nl = get_plot_func_nl(args)
-    plot_func_nl(nl_step_list, nl_res_list, line_style_list[line_counter], label="Total")
+    plot_func_nl(nl_step_list, nl_res_list, line_style_list_nl_plot[line_counter], label="Total")
     line_counter += 1
     if args.individual_var:
         var_name_list = list(one_data["nl_data"][0]["individual_var_res"].keys())
         var_name_list.sort()
         for ith_var_name in var_name_list:
+            if args.vars:
+                if not ith_var_name in args.vars:
+                    continue
             var_res_list = []
             for jth_nl_data in one_data["nl_data"]:
                 var_res_list.append(jth_nl_data["individual_var_res"][ith_var_name])
-            plot_func_nl(nl_step_list, var_res_list, line_style_list[line_counter], label=ith_var_name)
+            plot_func_nl(nl_step_list, var_res_list, line_style_list_nl_plot[line_counter], label=ith_var_name)
             line_counter += 1
-    plt.xlabel("Non-linear step")
-    plt.ylabel("$|L|_2$ residual")
-    if args.lin_res_range:
-        plt.ylim(args.lin_res_range)
-    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25, 0.001, 0.01), ncol=2)
+    plt.xlabel(xlabel_nl_plot)
+    plt.ylabel(ylabel_nl_plot)
+    if args.nl_iter_range:
+        plt.xlim(args.nl_iter_range)
+    if args.nl_res_range:
+        plt.ylim(args.nl_res_range)
+    legend = ax.legend(loc=legend_loc_nl_plot, bbox_to_anchor=bbox_to_anchor_nl_plot, ncol=ncol_nl_plot)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     plt.tight_layout()
+    print("Saving nonlinear residual plot")
     plt.savefig(args.nl_plot_path, bbox_extra_artists=(legend,), bbox_inches='tight')
-    
-    # linear plot
+
+def plot_one_data_lin(args, one_data):
     fig, ax = plt.subplots(figsize=figsize)
-    line_style_list = ["k--", "b--", "r--", "g--", "k:", "b:", "r:", "g:", "k-.", "b-.", "r-.", "g-.",]
     plot_func_lin = get_plot_func_lin(args)
     line_counter = 0
     for i_lin_data, ith_lin_data in enumerate(one_data["nl_data"]):
@@ -141,15 +170,26 @@ def plot_one_data(args, one_data):
         if len(lin_step_list) == 0:
             continue
         lin_res_list = ith_lin_data["lin_res_list"]
-        plot_func_nl(lin_step_list, lin_res_list, line_style_list[line_counter], label=i_lin_data)
+        plot_func_lin(lin_step_list, lin_res_list, line_style_list_lin_plot[line_counter], label=i_lin_data)
         line_counter += 1
-    plt.xlabel("Linear step")
-    plt.ylabel("$|L|_2$ residual")
-    if args.nl_res_range:
-        plt.ylim(args.nl_res_range)
-    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25, 0.001, 0.01), ncol=3)
+    plt.xlabel(xlabel_lin_plot)
+    plt.ylabel(ylabel_lin_plot)
+    if args.lin_iter_range:
+        plt.xlim(args.lin_iter_range)
+    if args.lin_res_range:
+        plt.ylim(args.lin_res_range)
+    legend = ax.legend(loc=legend_loc_lin_plot, bbox_to_anchor=bbox_to_anchor_lin_plot, ncol=ncol_lin_plot)
+    if args.lin_plot_type == "plot" or args.lin_plot_type == "semilogy":
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     plt.tight_layout()
+    print("Saving linear residual plot")
     plt.savefig(args.lin_plot_path, bbox_extra_artists=(legend,), bbox_inches='tight')
+
+def plot_one_data(args, one_data):
+    # Nonlinear plot
+    plot_one_data_nl(args, one_data)
+    # Linear plot
+    plot_one_data_lin(args, one_data)
 
 def analyze_console_output(args):
     print("Analyzing console output...")
@@ -160,7 +200,7 @@ def analyze_console_output(args):
         time_step_data_list = []
         for ith_output in each_time_step_output:
             ith_time_step_data = {}
-            time_step, time = get_time_step_and_time(ith_output) 
+            time_step, time = get_time_step_and_time(ith_output)
             print("Time step : {:d}".format(time_step))
             each_nl_output_list = get_repeated_patterns(ith_output, r"\d+\s*Nonlinear\s*\|R\|\s*=\s*[\d.e+-]*")
             print("  Number of nonlinear iterations : {:d}".format(len(each_nl_output_list)))
@@ -168,7 +208,7 @@ def analyze_console_output(args):
             nl_res_list = []
             nl_data = []
             for jth_nl_output in each_nl_output_list:
-                jth_nl_data = {} 
+                jth_nl_data = {}
                 if args.individual_var:
                     result = re.search(r"\d+\s*Nonlinear\s*\|R\|\s*=\s*[\d.e+-]*", ith_output)
                     if result:
@@ -189,8 +229,8 @@ def analyze_console_output(args):
                     lin_step, lin_res = get_lin_step_and_res(kth_lin_output)
                     lin_step_list.append(lin_step)
                     lin_res_list.append(lin_res)
-                jth_nl_data["lin_step_list"] = lin_step_list 
-                jth_nl_data["lin_res_list"] = lin_res_list 
+                jth_nl_data["lin_step_list"] = lin_step_list
+                jth_nl_data["lin_res_list"] = lin_res_list
                 jth_nl_data["nl_step"] = nl_step
                 jth_nl_data["nl_res"] = nl_res
                 nl_data.append(jth_nl_data)
@@ -204,25 +244,30 @@ def analyze_console_output(args):
         plot_time_step_data(args, time_step_data_list)
 
 if __name__ == "__main__":
+    # Command line argument definitions
     parser = argparse.ArgumentParser(description='Plots non-linear and linear residual.')
     parser.add_argument('--in', '-i', dest='input_file_path', type=str)
     parser.add_argument('--out', '-o', dest='output_file_path', type=str)
-    parser.add_argument('--transient', '-T', dest='is_transient', action='store_true', default=True)
-    parser.add_argument('--steady', '-S', dest='is_steady', action='store_true', default=True)
-    parser.add_argument('--individual_var', '-I', dest='individual_var', action='store_true', default=True)
-    parser.add_argument('--vars', '-v', dest='individual_var', action='store_true', default=True)
+    parser.add_argument('--transient', '-T', dest='is_transient', action='store_true')
+    parser.add_argument('--time_step', '-t', dest='time_step', type=int, nargs='*')
+    parser.add_argument('--steady', '-S', dest='is_steady', action='store_true')
+    parser.add_argument('--individual_var', '-I', dest='individual_var', action='store_true')
+    parser.add_argument('--vars', '-v', dest='vars', nargs='*')
 
-    parser.add_argument('--nl_semilogy', dest='nl_semilogy', action='store_true', default=False)
     parser.add_argument('--nl_plot_path', dest='nl_plot_path', type=str)
     parser.add_argument('--nl_plot_type', dest='nl_plot_type', type=str)
     parser.add_argument('--nl_res_range', dest='nl_res_range', type=float, nargs=2)
+    parser.add_argument('--nl_iter_range', dest='nl_iter_range', type=int, nargs=2)
     parser.add_argument('--lin_plot_path', dest='lin_plot_path', type=str)
     parser.add_argument('--lin_plot_type', dest='lin_plot_type', type=str)
     parser.add_argument('--lin_res_range', dest='lin_res_range', type=float, nargs=2)
-    parser.add_argument('--time_step', '-t', dest='time_step', type=int, nargs='*')
-    parser.add_argument('--nl_step', dest='nl_step', type=int)
+    parser.add_argument('--lin_iter_range', dest='lin_iter_range', type=float, nargs=2)
+
     args = parser.parse_args()
-    print(args.time_step)
-    #if args.time_step and len(args.time_step) == 1:
-    analyze_console_output(args)
+
+    # Checking if valid argument values are given or not. If invalid, ValueError is raised.
+    get_plot_func_nl(args)
+    get_plot_func_lin(args)
     
+    analyze_console_output(args)
+
