@@ -951,6 +951,11 @@ public:
    * Set the pointer to the XFEM controller object
    */
   void setXFEM(std::shared_ptr<XFEMInterface> xfem) { _xfem = xfem; }
+  void addJacobianBlock(SparseMatrix<Number> & jacobian,
+                        DenseMatrix<Number> & jac_block,
+                        const std::vector<dof_id_type> & idof_indices,
+                        const std::vector<dof_id_type> & jdof_indices,
+                        Real scaling_factor);
 
 protected:
   /**
@@ -993,12 +998,6 @@ protected:
   void setResidualBlock(NumericVector<Number> & residual,
                         DenseVector<Number> & res_block,
                         std::vector<dof_id_type> & dof_indices,
-                        Real scaling_factor);
-
-  void addJacobianBlock(SparseMatrix<Number> & jacobian,
-                        DenseMatrix<Number> & jac_block,
-                        const std::vector<dof_id_type> & idof_indices,
-                        const std::vector<dof_id_type> & jdof_indices,
                         Real scaling_factor);
 
   /**
