@@ -81,6 +81,30 @@ MooseTestApp__registerAll(Factory & f, ActionFactory & af, Syntax & s)
   MooseTestApp::registerAll(f, af, s);
 }
 
+void
+MooseTestApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
+{
+  Registry::registerActionsTo(action_factory, {"MooseTestApp"});
+
+  // and add more
+  registerSyntax("ConvDiffMetaAction", "ConvectionDiffusion");
+  registerSyntaxTask("AddAuxVariableAction", "MoreAuxVariables/*", "add_aux_variable");
+  registerSyntaxTask("AddLotsOfAuxVariablesAction", "LotsOfAuxVariables/*", "add_variable");
+  registerSyntaxTask("AddBlockDeleterMeshModifierWithRegExAction", "AddBlockDeleterMeshModifierWithRegEx/*", "add_mesh_modifier");
+
+  registerSyntax("ApplyCoupledVariablesTestAction", "ApplyInputParametersTest");
+  registerSyntax("AddLotsOfDiffusion", "Testing/LotsOfDiffusion/*");
+  registerSyntax("TestGetActionsAction", "TestGetActions");
+  registerSyntax("BadAddKernelAction", "BadKernels/*");
+
+  registerSyntax("AddMatAndKernel", "AddMatAndKernel");
+
+  registerSyntax("MetaNodalNormalsAction", "MetaNodalNormals");
+
+  // For testing the ability to create problems in user defined Actions
+  registerSyntax("CreateSpecialProblemAction", "TestProblem");
+}
+
 // External entry point for dynamic application loading
 extern "C" void
 MooseTestApp__registerApps()
