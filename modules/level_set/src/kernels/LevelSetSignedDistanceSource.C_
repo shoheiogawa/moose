@@ -1,0 +1,44 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#include "LevelSetSignedDistanceSource.h"
+
+registerMooseObject("LevelSetApp", LevelSetSignedDistanceSource);
+
+template <>
+InputParameters
+validParams<LevelSetSignedDistanceSource>()
+{
+  InputParameters params = validParams<Kernel>();
+  params.addClassDescription("Computes the source term for distance function computation.");
+  return params;
+}
+
+LevelSetSignedDistanceSource::LevelSetSignedDistanceSource(const InputParameters & parameters)
+  : Kernel(parameters)
+{
+}
+
+Real
+LevelSetSignedDistanceSource::computeQpResidual()
+{
+  Real u = _u[_qp];
+  Real sign = (u > 0) - (u < 0);
+  Real grad_u_norm = _grad_u[_qp].norm();
+  if (grad_u_norm < 1e-6)
+    return 0.0;
+  else
+  {
+    if (u < -0.5 || 0.5 < u)
+      return 0.0;
+    else
+      return _scale * sign * _grad_u[_qp](_component) / grad_u_norm;
+  }
+}
+
