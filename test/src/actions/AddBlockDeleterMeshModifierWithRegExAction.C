@@ -24,7 +24,6 @@ validParams<AddBlockDeleterMeshModifierWithRegExAction>()
   params.addParam<bool>("new_boundary", false, "Create new boundaries using the surface of deleted bocks.");
   params.addParam<std::string>("new_boundary_prefix", "", "Prefix to be added at the beginning of deleted block name.");
   params.addParam<std::string>("new_boundary_suffix", "", "Suffix to be added at the end of deleted block name.");
-
   return params;
 }
 
