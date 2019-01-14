@@ -41,7 +41,6 @@ LevelSetSignedDistancVelocity::LevelSetSignedDistancVelocity(const InputParamete
 Real
 LevelSetSignedDistancVelocity::computeValue()
 {
-  Real psi = _psi[_qp];
   Real psi_0 = _psi_0[_qp];
   Real grad_psi_norm = _grad_psi[_qp].norm();
   Real S_0_psi_0 = 2.0 * smoothStepFunction(psi_0) - 1.0;
@@ -60,7 +59,7 @@ LevelSetSignedDistancVelocity::smoothStepFunction(Real psi) const
   if (psi < -_epsilon)
     return 0.0;
   else if (-_epsilon <= psi && psi <= _epsilon)
-    return 1.0 / 2.0 * (1.0 + psi / _epsilon + 1.0 / M_PI * sin(M_PI * psi / _epsilon));
+    return 1.0 / 2.0 * (1.0 + psi / _epsilon + 1.0 / M_PI * std::sin(M_PI * psi / _epsilon));
   else
     return 1.0;
 }

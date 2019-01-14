@@ -46,7 +46,7 @@ LevelSetSignedDistanceSource::smoothStepFunction(Real psi) const
   if (psi < -_epsilon)
     return 0.0;
   else if (-_epsilon <= psi && psi <= _epsilon)
-    return 1.0 / 2.0 * (1.0 + psi / _epsilon + 1.0 / M_PI * sin(M_PI * psi / _epsilon));
+    return 1.0 / 2.0 * (1.0 + psi / _epsilon + 1.0 / M_PI * std::sin(M_PI * psi / _epsilon));
   else
     return 1.0;
 }
