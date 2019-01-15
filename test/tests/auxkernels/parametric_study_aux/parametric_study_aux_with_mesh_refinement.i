@@ -1,7 +1,7 @@
 [Mesh]
   type = GeneratedMesh
-  nx = 4
-  ny = 4
+  nx = 2
+  ny = 2
   dim = 2
 []
 
@@ -27,8 +27,8 @@
     type = ParametricStudyAux
     variable = u_aux
     range_func = '1.0 2.0 0.2'
-    value_list = '0.8 1.2 1.3'
-    unique_list = false
+    sort = ascending
+    value_list = '2.1 -1.0 1.7'
   []
 []
 
@@ -49,7 +49,7 @@
 
 [Executioner]
   type = Transient
-  dt = 1
+  dt = 0.5
   solve_type = PJFNK
   nl_rel_tol = 1e-03
   nl_abs_tol = 1e-12
@@ -66,5 +66,17 @@
     variable = 'u_aux'
     execute_on = 'TIMESTEP_BEGIN'
     boundary = 'right'
+  []
+[]
+
+[Adaptivity]
+  cycles_per_step = 1
+  marker = uniform_marker
+  max_h_level = 4
+  [Markers]
+    [uniform_marker]
+      type = UniformMarker
+      mark = REFINE
+    []
   []
 []
