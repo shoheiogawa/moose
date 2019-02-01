@@ -25,15 +25,42 @@ public:
   ParametricStudyAux(const InputParameters & parameters);
 
 protected:
-  virtual void timestepSetup() override; // For showing the parameter studied in each time step.
+  virtual void timestepSetup() override;
   virtual Real computeValue() override;
 
-  std::vector<Real> _value_list; // List of parameters studied.
-  std::vector<Real> _range_func_args; // Vector to store start_value, end_value, increment.
-  MooseEnum _sort; // ascending or descending
-  bool _unique_list; // true if the _value_list is a unique set.
-  Real _unique_tolerance; // Tolerance to find two values in the list the same.
-  Real _epsilon_range; // Small value used in range function calculation.
-  Real _epsilon_index; // Small value related to moving to next parameter.
+  /**
+   * Used in the timestepSetup function of the class which is inheriting from this class.
+   */
+  virtual void showParamInfoToConsole();
+
+  /**
+   * Computes and sets _current_param_value. Should be called in timestepSetup().
+   */
+  void setCurrentParamValue();
+
+private:
+  /// Current parameter value.
+  Real _current_param_value;
+
+  /// List of parameters to be studied.
+  std::vector<Real> _value_list;
+
+  /// Vector to store start_value, end_value, increment.
+  std::vector<Real> _range_func_args;
+
+  /// Store ascending or descending.
+  MooseEnum _sort;
+
+  /// Has true if the _value_list should be a unique set.
+  bool _unique_list;
+
+  /// Tolerance to find two values the same in the list.
+  Real _unique_tolerance;
+
+  /// Small value used in range function calculation.
+  Real _epsilon_range;
+
+  /// Small value used to find a next parameter should be studied.
+  Real _epsilon_index;
 };
 #endif // PARAMETRIC_STUDY_AUX_H
