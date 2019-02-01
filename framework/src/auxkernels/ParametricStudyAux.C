@@ -38,6 +38,6 @@ void
 ParametricStudyAux::timestepSetup()
 {
   setCurrentParamValue();
-  _console << "Parametric study : " + _var.name() << " = ";
+  _console << "Parametric study for the aux var : " + _var.name() << " = ";
   showParamInfoToConsole();
 }
