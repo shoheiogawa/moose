@@ -155,4 +155,28 @@
     vtk = true
     requirement = "The ImageFunction shift and scale options shall operate independently."
   [../]
+  [./tiff_uint8_2d_single]
+    # Test ability to read one 8-bit unsigned integer 2d image of 10x14
+    type = Exodiff
+    input = read_single_uint8_tiff_2d_image.i
+    exodiff = read_single_uint8_tiff_2d_image_out.e
+    vtk = true
+    requirement = "MOOSE shall include the ability to define a function based on one 8-bit unsigned integer Tiff 2D image and initialize an elemental aux variable."
+  [../]
+  [./tiff_uint16_2d_single]
+    # Test ability to read one 16-bit unsigned integer 2d image of 10x14
+    type = Exodiff
+    input = read_single_uint16_tiff_2d_image.i
+    exodiff = read_single_uint16_tiff_2d_image_out.e
+    vtk = true
+    requirement = "MOOSE shall include the ability to define a function based on one 16-bit unsigned integer Tiff 2D image and initialize an elemental aux variable."
+  [../]
+  [./tiff_uint8_2d_stack]
+    # Test ability to read one 8-bit unsigned integer 2d image stack 10x14x18
+    type = Exodiff
+    input = read_uint8_tiff_2d_image_stack.i
+    exodiff = read_uint8_tiff_2d_image_stack_out.e
+    vtk = true
+    requirement = "MOOSE shall include the ability to define a function based on a stack of 8-bit unsigned integer Tiff 2D images and initialize an elemental aux variable."
+  [../]
 []
