@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SIDE_NEIGHBOR_MARKER_H
-#define SIDE_NEIGHBOR_MARKER_H
+#pragma once
 
 #include "Marker.h"
 
@@ -32,5 +31,3 @@ protected:
 
   unsigned int _depth;
 };
-
-#endif /* SIDE_NEIGHBOR_MARKER_H */

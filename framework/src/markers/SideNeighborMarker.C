@@ -61,12 +61,17 @@ SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
   bool use_side = false;
 
   if (use_node)
+  {
     // loop over nodes of the current elem
+    auto local_node_ptr = elem->get_nodes();
     for (unsigned int node = 0; node < elem->n_nodes(); node++)
+    {
       for (auto sideset_id : _mark_sideset_ids)
         // check if the current node is on the sideset that you are looking for
-        if (_mesh.isBoundaryNode(elem->get_node(node)->id(), sideset_id))
+        if (_mesh.isBoundaryNode(local_node_ptr[node]->id(), sideset_id))
           return true;
+    }
+  }
 
   if (use_elem)
     // loop over sides of the current elem
@@ -89,15 +94,18 @@ SideNeighborMarker::searchForSidesets(const Elem * elem, unsigned int depth)
     {
       const Elem * neighbor_elem = elem->neighbor_ptr(side);
       if (neighbor_elem != NULL)
+      {
         if (elem->subdomain_id() == neighbor_elem->subdomain_id())
         {
           // Check the neighbor elements recursively.
           // If the function below eventually returns a true value in a recursive calling,
-          // the true value is returned to the if statement in the computeElementMarker() member function.
+          // the true value is returned to the if statement in the computeElementMarker()
+          // member function.
           // depth - 1 is supplied because you jump to one of the neighbor.
           if (searchForSidesets(neighbor_elem, depth - 1))
             return true;
         }
+      }
     }
   }
   return false;
