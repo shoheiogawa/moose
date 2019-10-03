@@ -82,15 +82,16 @@ SplitSubdomainGenerator::generate()
   std::set<dof_id_type> connected_element_ids;
   std::set<dof_id_type> visited_element_ids;
 
+  std::queue<const Elem *> elem_queue;
+
   auto new_subdomain_id = _new_subdomain_id_start;
 
   unsigned int new_name_id = isParamValid("new_name_id_start") ? _new_name_id_start : 0;
 
   // Loop over the elements
-  for (const auto & elem : mesh->element_ptr_range())
+  for (auto & elem : mesh->element_ptr_range())
   {
     subdomain_id_type curr_subdomain = elem->subdomain_id();
-
     // We only need to loop over elements in the master subdomain
     if (_subdomain_id_set.count(curr_subdomain) == 0)
       continue;
@@ -100,7 +101,10 @@ SplitSubdomainGenerator::generate()
       continue;
 
     connected_element_ids.clear();
-    connectedElementSearch(elem, connected_element_ids, visited_element_ids);
+    elem_queue.empty();
+
+    elem_queue.push(elem);
+    connectedElementSearch(elem_queue, connected_element_ids, visited_element_ids);
 
     // Change the subdomain ID of the whole connected domain
     for (const auto & elem_id : connected_element_ids)
@@ -126,32 +130,39 @@ SplitSubdomainGenerator::generate()
 
     // New connected domain has been registered and prepare for the next one
     new_subdomain_id++;
-    new_name_id ++;
+    new_name_id++;
   }
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
 
 void
-SplitSubdomainGenerator::connectedElementSearch(const Elem * elem,
+SplitSubdomainGenerator::connectedElementSearch(std::queue<const Elem *> & elem_queue,
                        std::set<dof_id_type> & connected_element_ids,
                        std::set<dof_id_type> & visited_element_ids)
 {
-  connected_element_ids.insert(elem->id());
-  visited_element_ids.insert(elem->id());
-  for (unsigned int side = 0; side < elem->n_sides(); side++)
+  while (!elem_queue.empty())
   {
-    const Elem * neighbor = elem->neighbor_ptr(side);
+    auto elem = elem_queue.front();
+    elem_queue.pop();
 
-    if (neighbor != NULL && _subdomain_id_set.count(neighbor->subdomain_id()) > 0)
+    connected_element_ids.insert(elem->id());
+    visited_element_ids.insert(elem->id());
+    for (unsigned int side = 0; side < elem->n_sides(); side++)
     {
-      // This neighbor element is connected to the current element.
+      const Elem * neighbor = elem->neighbor_ptr(side);
 
-      if (visited_element_ids.count(neighbor->id()) == 1)
+      if (neighbor != NULL && _subdomain_id_set.count(neighbor->subdomain_id()) > 0)
       {
-        continue; // Already visited this neighbor element
+        // This neighbor element is connected to the current element.
+        if (visited_element_ids.count(neighbor->id()) == 1)
+        {
+          continue; // Already visited this neighbor element
+        }
+        else
+        {
+          elem_queue.push(neighbor);
+        }
       }
-      else
-        connectedElementSearch(neighbor, connected_element_ids, visited_element_ids);
     }
   }
 }
