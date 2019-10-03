@@ -15,6 +15,7 @@
 #include "libmesh/bounding_box.h"
 
 #include <string>
+#include <queue>
 
 // Forward declarations
 class SplitSubdomainGenerator;
@@ -39,7 +40,7 @@ public:
 
 protected:
   /// Search for connected elements recursively
-  void connectedElementSearch(const Elem * elem,
+  void connectedElementSearch(std::queue<const Elem *> & elem_queue,
                               std::set<dof_id_type> & connected_element_ids,
                               std::set<dof_id_type> & visited_element_ids);
 
