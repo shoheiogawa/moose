@@ -16,6 +16,7 @@
 
 #include <string>
 #include <queue>
+#include <unordered_set>
 
 // Forward declarations
 class SplitSubdomainGenerator;
@@ -41,8 +42,8 @@ public:
 protected:
   /// Search for connected elements recursively
   void connectedElementSearch(std::queue<const Elem *> & elem_queue,
-                              std::set<dof_id_type> & connected_element_ids,
-                              std::set<dof_id_type> & visited_element_ids);
+                              std::unordered_set<dof_id_type> & connected_element_ids,
+                              std::unordered_set<dof_id_type> & visited_element_ids);
 
   /// Input mesh pointer
   std::unique_ptr<MeshBase> & _input;
@@ -50,8 +51,8 @@ protected:
   /// The IDs of the subdomains on which this mesh generator works
   std::vector<subdomain_id_type> _subdomain_ids;
 
-  /// The std::set version of _subdomain_ids for to use `count` function
-  std::set<subdomain_id_type> _subdomain_id_set;
+  /// The std::unordered_set version of _subdomain_ids for to use `count` function
+  std::unordered_set<subdomain_id_type> _subdomain_id_set;
 
   /// The subdomain ID to be set for the first isolated domain
   /// This ID is incremented for one isolated domain after another.
