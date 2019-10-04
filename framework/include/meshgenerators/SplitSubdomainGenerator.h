@@ -15,7 +15,7 @@
 #include "libmesh/bounding_box.h"
 
 #include <string>
-#include <queue>
+#include <set>
 #include <unordered_set>
 
 // Forward declarations
@@ -41,7 +41,7 @@ public:
 
 protected:
   /// Search for connected elements recursively
-  void connectedElementSearch(std::queue<const Elem *> & elem_queue,
+  void connectedElementSearch(std::set<const Elem *> & searching_elems,
                               std::unordered_set<dof_id_type> & connected_element_ids,
                               std::unordered_set<dof_id_type> & visited_element_ids);
 
