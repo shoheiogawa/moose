@@ -79,8 +79,8 @@ SplitSubdomainGenerator::generate()
       return dynamic_pointer_cast<MeshBase>(mesh);
   }
 
-  std::set<dof_id_type> connected_element_ids;
-  std::set<dof_id_type> visited_element_ids;
+  std::unordered_set<dof_id_type> connected_element_ids;
+  std::unordered_set<dof_id_type> visited_element_ids;
 
   std::queue<const Elem *> elem_queue;
 
@@ -89,9 +89,13 @@ SplitSubdomainGenerator::generate()
   unsigned int new_name_id = isParamValid("new_name_id_start") ? _new_name_id_start : 0;
 
   // Loop over the elements
+  std::cout << "Showing elements ID if the last two digits are 0\n";
   for (auto & elem : mesh->element_ptr_range())
   {
     subdomain_id_type curr_subdomain = elem->subdomain_id();
+
+    if (elem->id() % 10000 == 0)
+      std::cout << elem->id() << ", ";
     // We only need to loop over elements in the master subdomain
     if (_subdomain_id_set.count(curr_subdomain) == 0)
       continue;
@@ -100,11 +104,38 @@ SplitSubdomainGenerator::generate()
     if (visited_element_ids.count(elem->id()) != 0)
       continue;
 
+    std::cout << "Starting searching in a new isolated domain: " << new_subdomain_id << "\n";
+
     connected_element_ids.clear();
     elem_queue.empty();
 
     elem_queue.push(elem);
-    connectedElementSearch(elem_queue, connected_element_ids, visited_element_ids);
+    while (!elem_queue.empty())
+    {
+      auto elem = elem_queue.front();
+      elem_queue.pop();
+
+      connected_element_ids.insert(elem->id());
+      visited_element_ids.insert(elem->id());
+      for (unsigned int side = 0; side < elem->n_sides(); side++)
+      {
+        const Elem * neighbor = elem->neighbor_ptr(side);
+
+        if (neighbor != NULL && _subdomain_id_set.count(neighbor->subdomain_id()) > 0)
+        {
+          // This neighbor element is connected to the current element.
+          if (visited_element_ids.count(neighbor->id()) == 1)
+          {
+            continue; // Already visited this neighbor element
+          }
+          else
+          {
+            elem_queue.push(neighbor);
+          }
+        }
+      }
+    }
+    //connectedElementSearch(elem_queue, connected_element_ids, visited_element_ids);
 
     // Change the subdomain ID of the whole connected domain
     for (const auto & elem_id : connected_element_ids)
@@ -137,8 +168,8 @@ SplitSubdomainGenerator::generate()
 
 void
 SplitSubdomainGenerator::connectedElementSearch(std::queue<const Elem *> & elem_queue,
-                       std::set<dof_id_type> & connected_element_ids,
-                       std::set<dof_id_type> & visited_element_ids)
+                       std::unordered_set<dof_id_type> & connected_element_ids,
+                       std::unordered_set<dof_id_type> & visited_element_ids)
 {
   while (!elem_queue.empty())
   {
