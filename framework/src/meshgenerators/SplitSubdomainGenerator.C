@@ -24,18 +24,18 @@ validParams<SplitSubdomainGenerator>()
   params.addRequiredParam<MeshGeneratorName>("input", "The mesh we want to modify");
   params.addClassDescription("Split the sub-domains with given sub-domain IDs based "
                              "on spacial connectivity.");
-  params.addParam<std::vector<subdomain_id_type>>("subdomain_ids",
+  params.addRequiredParam<std::vector<subdomain_id_type>>("subdomain_ids",
                                 "The IDs of the subdomains on which "
                                 "this mesh generator works.");
   params.addRequiredParam<subdomain_id_type>("new_subdomain_id_start",
                                 "The subdomain ID to set for the first split domain. "
                                 "This ID is incremented for one after another.");
-  params.addRequiredParam<unsigned int>("new_name_id_start",
+  params.addParam<unsigned int>("new_name_id_start", 0,
                                 "The number used in the subdomain name of the first split domain. "
                                 "This number is incremented for one after another.");
   params.addParam<std::string>("prefix", "", "Prefix to be added in front of subdomain ID");
   params.addParam<std::string>("suffix", "", "Suffix to be added after subdomain ID");
-  params.addParam<unsigned int>("num_digits", "0s are added in front of connected ID "
+  params.addParam<unsigned int>("num_digits", 1, "0s are added in front of connected ID "
       "to make the number of digits this number, e.g., if num_digits = 5, 123 will be 00123.");
 
   return params;
@@ -57,14 +57,16 @@ SplitSubdomainGenerator::SplitSubdomainGenerator(const InputParameters & paramet
 std::unique_ptr<MeshBase>
 SplitSubdomainGenerator::generate()
 {
-  // This algorithm doesn't work with multiple cores even on replicated mesh
-  // because if in parallel, each processor potential look at different unconnected
+  // This algorithm won't work with multiple processors even on a replicated mesh
+  // because if in parallel, each processor look at different unconnected
   // domains. To make this code in parallel, it is necessary to match which domain on one
   // processor is connected to which domain in the mesh of other processors.
   // This can be possibly done by storing the element ID of remote elements if they
   // have the same subdomain IDs and storing the processor ID of the remote elements.
   // After all elements are processed in each processor, check the element IDs of each
-  // set on one processor with those on the processor with the stored IDs.
+  // set on one processor with those on the processor with the stored IDs and if the same
+  // IDs are found (there are common items), the two domains on different processors are
+  // the same conneceted domain. The same new subdomain ID and name should be assigned.
 
   std::unique_ptr<MeshBase> mesh = std::move(_input);
 
@@ -73,111 +75,83 @@ SplitSubdomainGenerator::generate()
 
   if (mesh->n_processors() > 1)
   {
-    mooseWarning("SplitSubdomainGenerator is using only a single processor"
-                 " due to its algorithm");
+    mooseWarning("SplitSubdomainGenerator is using only one processor"
+                 " due to its implementation");
     if (mesh->processor_id() != 0)
       return dynamic_pointer_cast<MeshBase>(mesh);
   }
 
+  // Store the IDs of elements in one conneceted domain
   std::unordered_set<dof_id_type> connected_element_ids;
+
+  // Store the IDs of elements which belong to the subdomain of interest and
+  // is already visited.
   std::unordered_set<dof_id_type> visited_element_ids;
 
-  std::queue<const Elem *> elem_queue;
+  // Use a set instead of queue to avoid duplicated items
+  std::set<const Elem *> searching_elems;
 
   auto new_subdomain_id = _new_subdomain_id_start;
 
-  unsigned int new_name_id = isParamValid("new_name_id_start") ? _new_name_id_start : 0;
+  auto new_name_id = _new_name_id_start;
 
   // Loop over the elements
-  std::cout << "Showing elements ID if the last two digits are 0\n";
   for (auto & elem : mesh->element_ptr_range())
   {
-    subdomain_id_type curr_subdomain = elem->subdomain_id();
-
-    if (elem->id() % 10000 == 0)
-      std::cout << elem->id() << ", ";
     // We only need to loop over elements in the master subdomain
-    if (_subdomain_id_set.count(curr_subdomain) == 0)
+    if (_subdomain_id_set.count(elem->subdomain_id()) == 0)
       continue;
 
     // We only start with elements we haven't visited so far
     if (visited_element_ids.count(elem->id()) != 0)
       continue;
 
-    std::cout << "Starting searching in a new isolated domain: " << new_subdomain_id << "\n";
-
+    // Start a new isolated domain here
     connected_element_ids.clear();
-    elem_queue.empty();
-
-    elem_queue.push(elem);
-    while (!elem_queue.empty())
-    {
-      auto elem = elem_queue.front();
-      elem_queue.pop();
-
-      connected_element_ids.insert(elem->id());
-      visited_element_ids.insert(elem->id());
-      for (unsigned int side = 0; side < elem->n_sides(); side++)
-      {
-        const Elem * neighbor = elem->neighbor_ptr(side);
-
-        if (neighbor != NULL && _subdomain_id_set.count(neighbor->subdomain_id()) > 0)
-        {
-          // This neighbor element is connected to the current element.
-          if (visited_element_ids.count(neighbor->id()) == 1)
-          {
-            continue; // Already visited this neighbor element
-          }
-          else
-          {
-            elem_queue.push(neighbor);
-          }
-        }
-      }
-    }
-    //connectedElementSearch(elem_queue, connected_element_ids, visited_element_ids);
+    searching_elems.insert(elem);
+    connectedElementSearch(searching_elems, connected_element_ids, visited_element_ids);
 
     // Change the subdomain ID of the whole connected domain
     for (const auto & elem_id : connected_element_ids)
     {
-      Elem * elem = mesh->query_elem_ptr(elem_id);
+      auto elem = mesh->query_elem_ptr(elem_id);
       elem->subdomain_id() = new_subdomain_id;
     }
 
     // Assign a subdomain name, if provided
-    if (isParamValid("new_name_id_start"))
+    std::string subdomain_name = std::to_string(new_name_id);
+    if (_num_digits > 1)
     {
-      std::string subdomain_name = std::to_string(new_name_id);
-      if (isParamValid("num_digits"))
-      {
-        int num_digits = subdomain_name.length();
-        int diff = _num_digits - num_digits;
-        if (diff > 0)
-          for (int i = 0; i < diff; i++)
-            subdomain_name = '0' + subdomain_name;
-      }
-      mesh->subdomain_name(new_subdomain_id) = _prefix + subdomain_name + _suffix;
+      auto num_digits = subdomain_name.length();
+      auto diff = _num_digits - num_digits;
+      if (diff > 0)
+        for (unsigned int i = 0; i < diff; i++)
+          subdomain_name = '0' + subdomain_name;
     }
+    mesh->subdomain_name(new_subdomain_id) = _prefix + subdomain_name + _suffix;
 
     // New connected domain has been registered and prepare for the next one
-    new_subdomain_id++;
-    new_name_id++;
+    ++new_subdomain_id;
+    ++new_name_id;
   }
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
 
 void
-SplitSubdomainGenerator::connectedElementSearch(std::queue<const Elem *> & elem_queue,
+SplitSubdomainGenerator::connectedElementSearch(std::set<const Elem *> & searching_elems,
                        std::unordered_set<dof_id_type> & connected_element_ids,
                        std::unordered_set<dof_id_type> & visited_element_ids)
 {
-  while (!elem_queue.empty())
+  while (!searching_elems.empty())
   {
-    auto elem = elem_queue.front();
-    elem_queue.pop();
+    // Randomly loop over items in the set.
+    auto elem_iter = searching_elems.begin();
+    auto elem = *elem_iter;
+    searching_elems.erase(elem);
 
     connected_element_ids.insert(elem->id());
     visited_element_ids.insert(elem->id());
+
     for (unsigned int side = 0; side < elem->n_sides(); side++)
     {
       const Elem * neighbor = elem->neighbor_ptr(side);
@@ -185,14 +159,9 @@ SplitSubdomainGenerator::connectedElementSearch(std::queue<const Elem *> & elem_
       if (neighbor != NULL && _subdomain_id_set.count(neighbor->subdomain_id()) > 0)
       {
         // This neighbor element is connected to the current element.
-        if (visited_element_ids.count(neighbor->id()) == 1)
-        {
-          continue; // Already visited this neighbor element
-        }
-        else
-        {
-          elem_queue.push(neighbor);
-        }
+        // Add this neighbor to the searching element set unless it is already visited.
+        if (visited_element_ids.count(neighbor->id()) != 1)
+          searching_elems.insert(neighbor);
       }
     }
   }

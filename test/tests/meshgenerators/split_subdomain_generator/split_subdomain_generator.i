@@ -44,7 +44,7 @@
     input = subdomain_middle
     subdomain_ids = '1 2'
     new_subdomain_id_start = 10
-    new_name_id_start = 0
+    new_name_id_start = 10
     prefix = 'part_'
     suffix = '_subdomain'
     num_digits = 3
