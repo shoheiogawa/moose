@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PARAMETRIC_STUDY_FUNCTION_H
-#define PARAMETRIC_STUDY_FUNCTION_H
+#pragma once
 
 #include "Function.h"
 #include "ParametricStudyInterface.h"
@@ -26,10 +25,8 @@ class ParametricStudyFunction
 {
 public:
   ParametricStudyFunction(const InputParameters & parameters);
-  virtual Real value(Real t, const Point & p) override;
+  virtual Real value(Real t, const Point & p) const override;
 
 protected:
   virtual void timestepSetup() override;
 };
-
-#endif // PARAMETRIC_STUDY_FUNCTION_H

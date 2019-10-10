@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PARAMETRIC_STUDY_INTERFACE_H
-#define PARAMETRIC_STUDY_INTERFACE_H
+#pragma once
 
 #include "MooseTypes.h"
 #include "ExecFlagEnum.h"
@@ -47,7 +46,7 @@ protected:
   /**
    * Returns current parameter values.
    */
-  virtual Real getCurrentParamValue();
+  virtual Real getCurrentParamValue() const;
 
 protected:
   using T::_t;
@@ -71,10 +70,10 @@ protected:
 
   /// Tolerance to find two values the same in the list.
   Real _unique_tolerance;
- 
+
   /// Small value used in range function calculation.
   Real _epsilon_range;
- 
+
   /// Small value used to find a next parameter should be studied.
   Real _epsilon_index;
 };
@@ -82,13 +81,13 @@ protected:
 template <typename T>
 ParametricStudyInterface<T>:: ParametricStudyInterface(const InputParameters & parameters)
 : T(parameters),
-  _value_list(this->template getParam<std::vector<Real>>("value_list")),
-  _range_func_args(this->template getParam<std::vector<Real>>("range_func")),
-  _sort(this->template getParam<MooseEnum>("sort")),
-  _unique_list(this->template getParam<bool>("unique_list")),
-  _unique_tolerance(this->template getParam<Real>("unique_tolerance")),
-  _epsilon_range(this->template getParam<Real>("epsilon_range")),
-  _epsilon_index(this->template getParam<Real>("epsilon_index"))
+  _value_list(getParam<std::vector<Real>>("value_list")),
+  _range_func_args(getParam<std::vector<Real>>("range_func")),
+  _sort(getParam<MooseEnum>("sort")),
+  _unique_list(getParam<bool>("unique_list")),
+  _unique_tolerance(getParam<Real>("unique_tolerance")),
+  _epsilon_range(getParam<Real>("epsilon_range")),
+  _epsilon_index(getParam<Real>("epsilon_index"))
 {
   SubProblem & subproblem = *this->template getCheckedPointerParam<SubProblem *>("_subproblem");
   // The simulation has to be transient for indexing.
@@ -170,7 +169,7 @@ ParametricStudyInterface<T>::setCurrentParamValue()
 
 template <typename T>
 Real
-ParametricStudyInterface<T>::getCurrentParamValue()
+ParametricStudyInterface<T>::getCurrentParamValue() const
 {
   return _current_param_value;
 }
@@ -214,5 +213,3 @@ ParametricStudyInterface<T>::validParams()
 
   return params;
 }
-
-#endif // PARAMETRIC_STUDY_INTERFACE_H

@@ -28,7 +28,7 @@ ParametricStudyFunction::ParametricStudyFunction(const InputParameters & paramet
 }
 
 Real
-ParametricStudyFunction::value(Real, const Point &)
+ParametricStudyFunction::value(Real, const Point &) const
 {
   return getCurrentParamValue();
 }

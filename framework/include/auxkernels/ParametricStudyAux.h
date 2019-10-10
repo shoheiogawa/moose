@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PARAMETRIC_STUDY_AUX_H 
-#define PARAMETRIC_STUDY_AUX_H 
+#pragma once
 
 #include "AuxKernel.h"
 #include "ParametricStudyInterface.h"
@@ -36,5 +35,3 @@ protected:
   virtual Real computeValue() override;
   virtual void timestepSetup() override;
 };
-
-#endif // PARAMETRIC_STUDY_AUX_H
