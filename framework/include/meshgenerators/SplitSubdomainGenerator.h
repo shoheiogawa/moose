@@ -12,8 +12,6 @@
 #include "MeshGenerator.h"
 #include "MooseEnum.h"
 
-#include "libmesh/bounding_box.h"
-
 #include <string>
 #include <set>
 #include <unordered_set>
@@ -23,11 +21,6 @@ class SplitSubdomainGenerator;
 
 template <>
 InputParameters validParams<SplitSubdomainGenerator>();
-
-namespace libMesh
-{
-class BoundingBox;
-}
 
 /**
  * MeshGenerator for splitting unconnected subdomain of given IDs
