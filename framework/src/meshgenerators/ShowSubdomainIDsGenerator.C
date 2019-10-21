@@ -13,6 +13,9 @@
 #include "libmesh/elem.h"
 #include "MooseMeshUtils.h"
 #include "MooseMesh.h"
+
+#include <set>
+
 registerMooseObject("MooseApp", ShowSubdomainIDsGenerator);
 
 template <>
@@ -34,8 +37,11 @@ std::unique_ptr<MeshBase>
 ShowSubdomainIDsGenerator::generate()
 {
   std::unique_ptr<MeshBase> mesh = std::move(_input);
+
+  std::set<subdomain_id_type> subdomain_ids;
+  mesh->subdomain_ids(subdomain_ids);
   _console << "Existing subdomain IDs: ";
-  for (auto subdomain_id : _mesh->meshSubdomains())
+  for (auto subdomain_id : subdomain_ids)
     _console << subdomain_id << ", ";
   _console << "\n";
 
