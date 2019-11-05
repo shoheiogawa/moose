@@ -51,7 +51,7 @@ class MultiMooseEnum;
 class MaterialPropertyStorage;
 class MaterialData;
 class MooseEnum;
-class Resurrector;
+class RestartableDataIO;
 class Assembly;
 class JacobianBlock;
 class Control;
@@ -210,24 +210,6 @@ public:
                             const PetscBool force_iteration,
                             const Real initial_residual_before_preset_bcs,
                             const Real div_threshold);
-
-  /**
-   * Check for convergence of the linear solution
-   * @param msg            Error message that gets sent back to the solver
-   * @param n              Iteration counter
-   * @param rnorm          Norm of the residual vector
-   * @param rtol           Relative residual convergence tolerance
-   * @param atol           Absolute residual convergence tolerance
-   * @param dtol           Divergence tolerance
-   * @param maxits         Maximum number of linear iterations allowed
-   */
-  virtual MooseLinearConvergenceReason checkLinearConvergence(std::string & msg,
-                                                              const PetscInt n,
-                                                              const Real rnorm,
-                                                              const Real rtol,
-                                                              const Real atol,
-                                                              const Real dtol,
-                                                              const PetscInt maxits);
 
   virtual bool hasVariable(const std::string & var_name) const override;
   virtual MooseVariableFEBase & getVariable(
@@ -696,6 +678,15 @@ public:
                                  const std::string & kernel_name,
                                  const std::string & name,
                                  InputParameters & parameters);
+  virtual void addInterfaceMaterial(const std::string & kernel_name,
+                                    const std::string & name,
+                                    InputParameters & parameters);
+  virtual void addADResidualInterfaceMaterial(const std::string & kernel_name,
+                                              const std::string & name,
+                                              InputParameters & parameters);
+  virtual void addADJacobianInterfaceMaterial(const std::string & kernel_name,
+                                              const std::string & name,
+                                              InputParameters & parameters);
 
   /**
    * Add the MooseVariables that the current materials depend on to the dependency list.
@@ -710,6 +701,8 @@ public:
   reinitMaterialsNeighbor(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful = true);
   virtual void
   reinitMaterialsBoundary(BoundaryID boundary_id, THREAD_ID tid, bool swap_stateful = true);
+  virtual void
+  reinitMaterialsInterface(BoundaryID boundary_id, THREAD_ID tid, bool swap_stateful = true);
   /*
    * Swap back underlying data storing stateful material properties
    */
@@ -967,20 +960,20 @@ public:
    * Get Transfers by ExecFlagType and direction
    */
   std::vector<std::shared_ptr<Transfer>> getTransfers(ExecFlagType type,
-                                                      MultiAppTransfer::DIRECTION direction) const;
+                                                      Transfer::DIRECTION direction) const;
 
   /**
    * Return the complete warehouse for MultiAppTransfer object for the given direction
    */
   const ExecuteMooseObjectWarehouse<Transfer> &
-  getMultiAppTransferWarehouse(MultiAppTransfer::DIRECTION direction) const;
+  getMultiAppTransferWarehouse(Transfer::DIRECTION direction) const;
 
   /**
    * Execute MultiAppTransfers associate with execution flag and direction.
    * @param type The execution flag to execute.
    * @param direction The direction (to or from) to transfer.
    */
-  void execMultiAppTransfers(ExecFlagType type, MultiAppTransfer::DIRECTION direction);
+  void execMultiAppTransfers(ExecFlagType type, Transfer::DIRECTION direction);
 
   /**
    * Execute the MultiApps associated with the ExecFlagType
@@ -1434,6 +1427,7 @@ public:
    * @return Boolean indicating whether material properties need to be stored
    */
   bool needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid);
+  bool needInterfaceMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid);
   bool needSubdomainMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid);
   ///@}
 
@@ -1460,18 +1454,27 @@ public:
   const MaterialWarehouse & getResidualMaterialsWarehouse() const { return _residual_materials; }
   const MaterialWarehouse & getJacobianMaterialsWarehouse() const { return _jacobian_materials; }
   const MaterialWarehouse & getDiscreteMaterialWarehouse() const { return _discrete_materials; }
+  const MaterialWarehouse & getResidualInterfaceMaterialsWarehouse() const
+  {
+    return _residual_interface_materials;
+  }
 
   /**
-   * Return a pointer to a Material object.  If no_warn is true, suppress
+   * Return a pointer to a MaterialBase object.  If no_warn is true, suppress
    * warning about retrieving a material reference potentially during the
    * material's calculation.
    *
    * This will return enabled or disabled objects, the main purpose is for iterative materials.
    */
-  std::shared_ptr<Material> getMaterial(std::string name,
-                                        Moose::MaterialDataType type,
-                                        THREAD_ID tid = 0,
-                                        bool no_warn = false);
+  std::shared_ptr<MaterialBase> getMaterial(std::string name,
+                                            Moose::MaterialDataType type,
+                                            THREAD_ID tid = 0,
+                                            bool no_warn = false);
+
+  std::shared_ptr<MaterialBase> getInterfaceMaterial(std::string name,
+                                                     Moose::MaterialDataType type,
+                                                     THREAD_ID tid = 0,
+                                                     bool no_warn = false);
 
   /*
    * Return a pointer to the MaterialData
@@ -1640,6 +1643,15 @@ public:
   bool isSNESMFReuseBaseSetbyUser() { return _snesmf_reuse_base_set_by_user; }
 
   /**
+   * If petsc options are already inserted
+   */
+  bool & petscOptionsInserted() { return _is_petsc_options_inserted; }
+
+#if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
+  PetscOptions & petscOptionsDatabase() { return _petsc_option_data_base; }
+#endif
+
+  /**
    * Set the global automatic differentiaion (AD) flag which indicates whether any consumer has
    * requested an AD material property or whether any suppier has declared an AD material property
    */
@@ -1788,7 +1800,13 @@ protected:
                                          // materials and the residual copy of an ADMaterial
   MaterialWarehouse _jacobian_materials; // Jacobian materials. This is the union of traditional
                                          // materials and the Jacobian copy of an ADMaterial
-  MaterialWarehouse _discrete_materials; // Materials that the user must compute
+  MaterialWarehouse _residual_interface_materials; // Residual interface materials. This is the
+                                                   // union of traditional interface materials and
+                                                   // the residual copy of an ADInterfaceMaterial
+  MaterialWarehouse _jacobian_interface_materials; // Jacobian materials. This is the union of
+                                                   // traditional interface materials and the
+                                                   // Jacobian copy of an ADInterface Material
+  MaterialWarehouse _discrete_materials;           // Materials that the user must compute
   MaterialWarehouse _all_materials; // All materials for error checking and MaterialData storage
   ///@}
 
@@ -1834,6 +1852,9 @@ protected:
   /// Cache for calculating materials on side
   std::vector<std::unordered_map<BoundaryID, bool>> _bnd_mat_side_cache;
 
+  /// Cache for calculating materials on interface
+  std::vector<std::unordered_map<BoundaryID, bool>> _interface_mat_side_cache;
+
   /// Objects to be notified when the mesh changes
   std::vector<MeshChangedInterface *> _notify_when_mesh_changes;
 
@@ -1864,7 +1885,7 @@ protected:
    * @see checkProblemIntegrity
    */
   void checkDependMaterialsHelper(
-      const std::map<SubdomainID, std::vector<std::shared_ptr<Material>>> & materials_map);
+      const std::map<SubdomainID, std::vector<std::shared_ptr<MaterialBase>>> & materials_map);
 
   /// Verify that there are no element type/coordinate type conflicts
   void checkCoordinateSystems();
@@ -1913,7 +1934,7 @@ protected:
   bool _has_initialized_stateful;
 
   /// Object responsible for restart (read/write)
-  std::unique_ptr<Resurrector> _resurrector;
+  std::unique_ptr<RestartableDataIO> _restart_io;
 
   /// true if the Jacobian is constant
   bool _const_jacobian;
@@ -1968,7 +1989,12 @@ protected:
 #ifdef LIBMESH_HAVE_PETSC
   /// PETSc option storage
   Moose::PetscSupport::PetscOptions _petsc_options;
+#if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
+  PetscOptions _petsc_option_data_base;
+#endif
 #endif // LIBMESH_HAVE_PETSC
+  /// If or not petsc options have been added to database
+  bool _is_petsc_options_inserted;
 
   std::shared_ptr<LineSearch> _line_search;
 

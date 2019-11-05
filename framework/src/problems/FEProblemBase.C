@@ -11,7 +11,7 @@
 #include "AuxiliarySystem.h"
 #include "MaterialPropertyStorage.h"
 #include "MooseEnum.h"
-#include "Resurrector.h"
+#include "RestartableDataIO.h"
 #include "Factory.h"
 #include "MooseUtils.h"
 #include "DisplacedProblem.h"
@@ -195,6 +195,8 @@ validParams<FEProblemBase>()
                                         "by objects which compute residuals and Jacobians "
                                         "(Kernels, BCs, etc.) by setting tags on them.");
 
+  params.addPrivateParam<MooseMesh *>("mesh");
+
   return params;
 }
 
@@ -262,6 +264,7 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
     _parallel_barrier_messaging(getParam<bool>("parallel_barrier_messaging")),
     _current_execute_on_flag(EXEC_NONE),
     _control_warehouse(_app.getExecuteOnEnum(), /*threaded=*/false),
+    _is_petsc_options_inserted(false),
     _line_search(nullptr),
     _using_ad_mat_props(false),
     _error_on_jacobian_nonzero_reallocation(
@@ -363,8 +366,9 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
 
   _block_mat_side_cache.resize(n_threads);
   _bnd_mat_side_cache.resize(n_threads);
+  _interface_mat_side_cache.resize(n_threads);
 
-  _resurrector = libmesh_make_unique<Resurrector>(*this);
+  _restart_io = libmesh_make_unique<RestartableDataIO>(*this);
 
   _eq.parameters.set<FEProblemBase *>("_fe_problem_base") = this;
 
@@ -376,12 +380,15 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
   {
     std::string restart_file_base = getParam<FileNameNoExtension>("restart_file_base");
     restart_file_base = MooseUtils::convertLatestCheckpoint(restart_file_base);
-    _console << "\nUsing " << restart_file_base << " for restart.\n\n";
     setRestartFile(restart_file_base);
   }
 
   if (!_default_ghosting)
     _mesh.getMesh().remove_ghosting_functor(_mesh.getMesh().default_ghosting());
+
+#if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
+  PetscOptionsCreate(&_petsc_option_data_base);
+#endif
 }
 
 void
@@ -472,6 +479,10 @@ FEProblemBase::~FEProblemBase()
     _ad_grad_zero[i].release();
     _ad_second_zero[i].release();
   }
+
+#if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
+  PetscOptionsDestroy(&_petsc_option_data_base);
+#endif
 }
 
 Moose::CoordinateSystemType
@@ -625,23 +636,26 @@ FEProblemBase::initialSetup()
 #endif
   }
 
-  // Perform output related setups
-  _app.getOutputWarehouse().initialSetup();
-
-  // Flush all output to _console that occur during construction and initialization of objects
-  _app.getOutputWarehouse().mooseConsole();
-
   if (_app.isRecovering() && (_app.isUltimateMaster() || _force_restart))
   {
-    _resurrector->setRestartFile(_app.getRecoverFileBase());
-    if (_app.getRecoverFileSuffix() == "cpa")
-      _resurrector->setRestartSuffix("xda");
+    if (_app.getRestartRecoverFileSuffix() == "cpa")
+      _restart_io->useAsciiExtension();
   }
 
   if ((_app.isRestarting() || _app.isRecovering()) && (_app.isUltimateMaster() || _force_restart))
   {
     CONSOLE_TIMED_PRINT("Restarting from file");
-    _resurrector->restartFromFile();
+
+    _restart_io->readRestartableDataHeader(true);
+    _restart_io->restartEquationSystemsObject();
+
+    /**
+     * TODO: Move the RestartableDataIO call to reload data here. Only a few tests fail when doing
+     * this now. Material Properties aren't sized properly at this point and fail across the board,
+     * there are a few other misc tests that fail too.
+     *
+     * _restart_io->readRestartableData();
+     */
   }
   else
   {
@@ -654,6 +668,12 @@ FEProblemBase::initialSetup()
       _aux->copyVars(*reader);
     }
   }
+
+  // Perform output related setups
+  _app.getOutputWarehouse().initialSetup();
+
+  // Flush all output to _console that occur during construction and initialization of objects
+  _app.getOutputWarehouse().mooseConsole();
 
   // Build Refinement and Coarsening maps for stateful material projections if necessary
   if (_adaptivity.isOn() &&
@@ -877,7 +897,7 @@ FEProblemBase::initialSetup()
     {
       CONSOLE_TIMED_PRINT("Restoring restart data");
 
-      _resurrector->restartRestartableData();
+      _restart_io->readRestartableData(_app.getRestartableData(), _app.getRecoverableData());
     }
 
     // We may have just clobbered initial conditions that were explicitly set
@@ -907,8 +927,22 @@ FEProblemBase::initialSetup()
 
   // Call initialSetup on the transfers
   _transfers.initialSetup();
-  _to_multi_app_transfers.initialSetup();
-  _from_multi_app_transfers.initialSetup();
+
+  // Call initialSetup on the MultiAppTransfers to be executed on TO_MULTIAPP
+  const auto & to_multi_app_objects = _to_multi_app_transfers.getActiveObjects();
+  for (const auto & transfer : to_multi_app_objects)
+  {
+    transfer->setCurrentDirection(Transfer::DIRECTION::TO_MULTIAPP);
+    transfer->initialSetup();
+  }
+
+  // Call initialSetup on the MultiAppTransfers to be executed on FROM_MULTIAPP
+  const auto & from_multi_app_objects = _from_multi_app_transfers.getActiveObjects();
+  for (const auto & transfer : from_multi_app_objects)
+  {
+    transfer->setCurrentDirection(Transfer::DIRECTION::FROM_MULTIAPP);
+    transfer->initialSetup();
+  }
 
   if (!_app.isRecovering())
   {
@@ -1638,6 +1672,8 @@ FEProblemBase::reinitOffDiagScalars(THREAD_ID tid)
 void
 FEProblemBase::reinitNeighbor(const Elem * elem, unsigned int side, THREAD_ID tid)
 {
+  setNeighborSubdomainID(elem, side, tid);
+
   const Elem * neighbor = elem->neighbor_ptr(side);
   unsigned int neighbor_side = neighbor->which_neighbor_am_i(elem);
 
@@ -2572,7 +2608,7 @@ FEProblemBase::projectSolution()
   _aux->solution().localize(*_aux->sys().current_local_solution, _aux->dofMap().get_send_list());
 }
 
-std::shared_ptr<Material>
+std::shared_ptr<MaterialBase>
 FEProblemBase::getMaterial(std::string name,
                            Moose::MaterialDataType type,
                            THREAD_ID tid,
@@ -2590,7 +2626,33 @@ FEProblemBase::getMaterial(std::string name,
       break;
   }
 
-  std::shared_ptr<Material> material = _all_materials[type].getActiveObject(name, tid);
+  std::shared_ptr<MaterialBase> material = _all_materials[type].getActiveObject(name, tid);
+  if (!no_warn && material->getParamTempl<bool>("compute") && type == Moose::BLOCK_MATERIAL_DATA)
+    mooseWarning("You are retrieving a Material object (",
+                 material->name(),
+                 "), but its compute flag is set to true. This indicates that MOOSE is "
+                 "computing this property which may not be desired and produce un-expected "
+                 "results.");
+
+  return material;
+}
+
+std::shared_ptr<MaterialBase>
+FEProblemBase::getInterfaceMaterial(std::string name,
+                                    Moose::MaterialDataType type,
+                                    THREAD_ID tid,
+                                    bool no_warn)
+{
+  switch (type)
+  {
+    case Moose::INTERFACE_MATERIAL_DATA:
+      name += "_interface";
+      break;
+    default:
+      break;
+  }
+
+  std::shared_ptr<MaterialBase> material = _all_materials[type].getActiveObject(name, tid);
   if (!no_warn && material->getParamTempl<bool>("compute") && type == Moose::BLOCK_MATERIAL_DATA)
     mooseWarning("You are retrieving a Material object (",
                  material->name(),
@@ -2615,6 +2677,7 @@ FEProblemBase::getMaterialData(Moose::MaterialDataType type, THREAD_ID tid)
       break;
     case Moose::BOUNDARY_MATERIAL_DATA:
     case Moose::FACE_MATERIAL_DATA:
+    case Moose::INTERFACE_MATERIAL_DATA:
       output = _bnd_material_data[tid];
       break;
   }
@@ -2646,6 +2709,31 @@ FEProblemBase::addADJacobianMaterial(const std::string & mat_name,
 }
 
 void
+FEProblemBase::addInterfaceMaterial(const std::string & mat_name,
+                                    const std::string & name,
+                                    InputParameters & parameters)
+{
+  addMaterialHelper(
+      {&_residual_interface_materials, &_jacobian_interface_materials}, mat_name, name, parameters);
+}
+
+void
+FEProblemBase::addADResidualInterfaceMaterial(const std::string & mat_name,
+                                              const std::string & name,
+                                              InputParameters & parameters)
+{
+  addMaterialHelper({&_residual_interface_materials}, mat_name, name, parameters);
+}
+
+void
+FEProblemBase::addADJacobianInterfaceMaterial(const std::string & mat_name,
+                                              const std::string & name,
+                                              InputParameters & parameters)
+{
+  addMaterialHelper({&_jacobian_interface_materials}, mat_name, name, parameters);
+}
+
+void
 FEProblemBase::addMaterialHelper(std::vector<MaterialWarehouse *> warehouses,
                                  const std::string & mat_name,
                                  const std::string & name,
@@ -2673,8 +2761,10 @@ FEProblemBase::addMaterialHelper(std::vector<MaterialWarehouse *> warehouses,
 
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
   {
-    // Create the general Block/Boundary Material object
-    std::shared_ptr<Material> material = _factory.create<Material>(mat_name, name, parameters, tid);
+    // Create the general Block/Boundary MaterialBase object
+    std::shared_ptr<MaterialBase> material =
+        _factory.create<MaterialBase>(mat_name, name, parameters, tid);
+
     bool discrete = !material->getParamTempl<bool>("compute");
 
     // If the object is boundary restricted do not create the neighbor and face objects
@@ -2703,16 +2793,16 @@ FEProblemBase::addMaterialHelper(std::vector<MaterialWarehouse *> warehouses,
       current_parameters.set<Moose::MaterialDataType>("_material_data_type") =
           Moose::FACE_MATERIAL_DATA;
       object_name = name + "_face";
-      std::shared_ptr<Material> face_material =
-          _factory.create<Material>(mat_name, object_name, current_parameters, tid);
+      std::shared_ptr<MaterialBase> face_material =
+          _factory.create<MaterialBase>(mat_name, object_name, current_parameters, tid);
 
       // neighbor material
       current_parameters.set<Moose::MaterialDataType>("_material_data_type") =
           Moose::NEIGHBOR_MATERIAL_DATA;
       current_parameters.set<bool>("_neighbor") = true;
       object_name = name + "_neighbor";
-      std::shared_ptr<Material> neighbor_material =
-          _factory.create<Material>(mat_name, object_name, current_parameters, tid);
+      std::shared_ptr<MaterialBase> neighbor_material =
+          _factory.create<MaterialBase>(mat_name, object_name, current_parameters, tid);
 
       // Store the material objects
       _all_materials.addObjects(material, neighbor_material, face_material, tid);
@@ -2728,6 +2818,7 @@ FEProblemBase::addMaterialHelper(std::vector<MaterialWarehouse *> warehouses,
       MooseObjectParameterName face_name(MooseObjectName("Material", face_material->name()), "*");
       MooseObjectParameterName neighbor_name(MooseObjectName("Material", neighbor_material->name()),
                                              "*");
+
       _app.getInputParameterWarehouse().addControllableParameterConnection(name, face_name, false);
       _app.getInputParameterWarehouse().addControllableParameterConnection(
           name, neighbor_name, false);
@@ -2887,6 +2978,31 @@ FEProblemBase::reinitMaterialsBoundary(BoundaryID boundary_id, THREAD_ID tid, bo
         !_currently_computing_jacobian)
       _bnd_material_data[tid]->reinit(
           _residual_materials.getActiveBoundaryObjects(boundary_id, tid));
+  }
+}
+
+void
+FEProblemBase::reinitMaterialsInterface(BoundaryID boundary_id, THREAD_ID tid, bool swap_stateful)
+{
+  if (hasActiveMaterialProperties(tid))
+  {
+    const Elem * const & elem = _assembly[tid]->elem();
+    unsigned int side = _assembly[tid]->side();
+    unsigned int n_points = _assembly[tid]->qRuleFace()->n_points();
+    _bnd_material_data[tid]->resize(n_points);
+
+    if (swap_stateful && !_bnd_material_data[tid]->isSwapped())
+      _bnd_material_data[tid]->swap(*elem, side);
+
+    if (_jacobian_interface_materials.hasActiveBoundaryObjects(boundary_id, tid) &&
+        _currently_computing_jacobian)
+      _bnd_material_data[tid]->reinit(
+          _jacobian_interface_materials.getActiveBoundaryObjects(boundary_id, tid));
+
+    if (_residual_interface_materials.hasActiveBoundaryObjects(boundary_id, tid) &&
+        !_currently_computing_jacobian)
+      _bnd_material_data[tid]->reinit(
+          _residual_interface_materials.getActiveBoundaryObjects(boundary_id, tid));
   }
 }
 
@@ -3737,7 +3853,7 @@ FEProblemBase::getMultiApp(const std::string & multi_app_name) const
 }
 
 void
-FEProblemBase::execMultiAppTransfers(ExecFlagType type, MultiAppTransfer::DIRECTION direction)
+FEProblemBase::execMultiAppTransfers(ExecFlagType type, Transfer::DIRECTION direction)
 {
   bool to_multiapp = direction == MultiAppTransfer::TO_MULTIAPP;
   std::string string_direction = to_multiapp ? " To " : " From ";
@@ -3753,7 +3869,10 @@ FEProblemBase::execMultiAppTransfers(ExecFlagType type, MultiAppTransfer::DIRECT
     _console << COLOR_CYAN << "\nStarting Transfers on " << Moose::stringify(type)
              << string_direction << "MultiApps" << COLOR_DEFAULT << std::endl;
     for (const auto & transfer : transfers)
+    {
+      transfer->setCurrentDirection(direction);
       transfer->execute();
+    }
 
     MooseUtils::parallelBarrierNotify(_communicator, _parallel_barrier_messaging);
 
@@ -3766,7 +3885,7 @@ FEProblemBase::execMultiAppTransfers(ExecFlagType type, MultiAppTransfer::DIRECT
 }
 
 std::vector<std::shared_ptr<Transfer>>
-FEProblemBase::getTransfers(ExecFlagType type, MultiAppTransfer::DIRECTION direction) const
+FEProblemBase::getTransfers(ExecFlagType type, Transfer::DIRECTION direction) const
 {
   const MooseObjectWarehouse<Transfer> & wh = direction == MultiAppTransfer::TO_MULTIAPP
                                                   ? _to_multi_app_transfers[type]
@@ -3775,7 +3894,7 @@ FEProblemBase::getTransfers(ExecFlagType type, MultiAppTransfer::DIRECTION direc
 }
 
 const ExecuteMooseObjectWarehouse<Transfer> &
-FEProblemBase::getMultiAppTransferWarehouse(MultiAppTransfer::DIRECTION direction) const
+FEProblemBase::getMultiAppTransferWarehouse(Transfer::DIRECTION direction) const
 {
   if (direction == MultiAppTransfer::TO_MULTIAPP)
     return _to_multi_app_transfers;
@@ -3998,9 +4117,9 @@ FEProblemBase::addTransfer(const std::string & transfer_name,
       std::dynamic_pointer_cast<MultiAppTransfer>(transfer);
   if (multi_app_transfer)
   {
-    if (multi_app_transfer->direction() == MultiAppTransfer::TO_MULTIAPP)
+    if (multi_app_transfer->directions().contains(MultiAppTransfer::TO_MULTIAPP))
       _to_multi_app_transfers.addObject(multi_app_transfer);
-    else
+    if (multi_app_transfer->directions().contains(MultiAppTransfer::FROM_MULTIAPP))
       _from_multi_app_transfers.addObject(multi_app_transfer);
   }
   else
@@ -4394,6 +4513,9 @@ FEProblemBase::init()
   if (solverParams()._type == Moose::ST_JFNK)
     _nl->turnOffJacobian();
 
+  _nl->init();
+  _aux->init();
+
   {
     TIME_SECTION(_eq_init_timer);
     CONSOLE_TIMED_PRINT("Initializing equation system")
@@ -4409,12 +4531,8 @@ FEProblemBase::init()
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid)
     _assembly[tid]->init(_cm.get());
 
-  _nl->init();
-
   if (_displaced_problem)
     _displaced_problem->init();
-
-  _aux->init();
 
   _initialized = true;
 }
@@ -4425,7 +4543,19 @@ FEProblemBase::solve()
   TIME_SECTION(_solve_timer);
 
 #ifdef LIBMESH_HAVE_PETSC
+#if PETSC_RELEASE_LESS_THAN(3, 12, 0)
   Moose::PetscSupport::petscSetOptions(*this); // Make sure the PETSc options are setup for this app
+#else
+  // Now this database will be the default
+  // Each app should have only one database
+  PetscOptionsPush(_petsc_option_data_base);
+  // We did not add petsc options to database yet
+  if (!_is_petsc_options_inserted)
+  {
+    Moose::PetscSupport::petscSetOptions(*this);
+    _is_petsc_options_inserted = true;
+  }
+#endif
 #endif
 
   Moose::setSolverDefaults(*this);
@@ -4449,6 +4579,10 @@ FEProblemBase::solve()
   // sync solutions in displaced problem
   if (_displaced_problem)
     _displaced_problem->syncSolutions();
+
+#if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
+  PetscOptionsPop();
+#endif
 }
 
 void
@@ -5840,7 +5974,7 @@ FEProblemBase::checkUserObjects()
 
 void
 FEProblemBase::checkDependMaterialsHelper(
-    const std::map<SubdomainID, std::vector<std::shared_ptr<Material>>> & materials_map)
+    const std::map<SubdomainID, std::vector<std::shared_ptr<MaterialBase>>> & materials_map)
 {
   auto & prop_names = _material_props.statefulPropNames();
 
@@ -5864,7 +5998,7 @@ FEProblemBase::checkDependMaterialsHelper(
       // See if any of the active materials supply this property
       for (const auto & mat2 : it.second)
       {
-        const std::set<std::string> & supplied_props = mat2->Material::getSuppliedItems();
+        const std::set<std::string> & supplied_props = mat2->MaterialBase::getSuppliedItems();
         block_supplied_props.insert(supplied_props.begin(), supplied_props.end());
       }
     }
@@ -5991,9 +6125,14 @@ void
 FEProblemBase::setRestartFile(const std::string & file_name)
 {
   _app.setRestart(true);
-  _resurrector->setRestartFile(file_name);
-  if (_app.getRecoverFileSuffix() == "cpa")
-    _resurrector->setRestartSuffix("xda");
+
+  if (!_app.isRecovering())
+  {
+    _app.setRestartRecoverFileBase(file_name);
+    mooseInfo("Restart file ", file_name, " is NOT being used since we are performing recovery.");
+  }
+  else
+    mooseInfo("Using ", file_name, " for restart.");
 }
 
 std::vector<VariableName>
@@ -6091,53 +6230,6 @@ FEProblemBase::checkNonlinearConvergence(std::string & msg,
   return reason;
 }
 
-MooseLinearConvergenceReason
-FEProblemBase::checkLinearConvergence(std::string & /*msg*/,
-                                      const PetscInt n,
-                                      const Real rnorm,
-                                      const Real /*rtol*/,
-                                      const Real /*atol*/,
-                                      const Real /*dtol*/,
-                                      const PetscInt maxits)
-{
-  TIME_SECTION(_check_linear_convergence_timer);
-
-  if (_fail_next_linear_convergence_check)
-  {
-    // Unset the flag
-    _fail_next_linear_convergence_check = false;
-    return MooseLinearConvergenceReason::DIVERGED_NANORINF;
-  }
-
-  // We initialize the reason to something that basically means MOOSE
-  // has not made a decision on convergence yet.
-  MooseLinearConvergenceReason reason = MooseLinearConvergenceReason::ITERATING;
-
-  // Get a reference to our Nonlinear System
-  NonlinearSystemBase & system = getNonlinearSystemBase();
-
-  // If it's the beginning of a new set of iterations, reset
-  // last_rnorm, otherwise record the most recent linear residual norm
-  // in the NonlinearSystem.
-  if (n == 0)
-    system._last_rnorm = 1e99;
-  else
-    system._last_rnorm = rnorm;
-
-  // If we hit max its, then we consider that converged (rather than
-  // KSP_DIVERGED_ITS).
-  if (n >= maxits)
-    reason = MooseLinearConvergenceReason::CONVERGED_ITS;
-
-  // If either of our convergence criteria is met, store the number of linear
-  // iterations in the System.
-  if (reason == MooseLinearConvergenceReason::CONVERGED_ITS ||
-      reason == MooseLinearConvergenceReason::CONVERGED_RTOL)
-    system._current_l_its.push_back(static_cast<unsigned int>(n));
-
-  return reason;
-}
-
 SolverParams &
 FEProblemBase::solverParams()
 {
@@ -6173,6 +6265,12 @@ FEProblemBase::needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid)
   }
 
   return _bnd_mat_side_cache[tid][bnd_id];
+}
+
+bool
+FEProblemBase::needInterfaceMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid)
+{
+  return _residual_interface_materials.hasActiveBoundaryObjects(bnd_id, tid);
 }
 
 bool

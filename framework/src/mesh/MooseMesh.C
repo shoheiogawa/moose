@@ -759,7 +759,7 @@ MooseMesh::getActiveLocalElementRange()
   if (!_active_local_elem_range)
   {
     TIME_SECTION(_get_active_local_element_range_timer);
-    CONSOLE_TIMED_PRINT("Caching active local element rage");
+    CONSOLE_TIMED_PRINT("Caching active local element range");
 
     _active_local_elem_range = libmesh_make_unique<ConstElemRange>(
         getMesh().active_local_elements_begin(), getMesh().active_local_elements_end(), GRAIN_SIZE);
@@ -2129,7 +2129,8 @@ MooseMesh::init()
     {
       TIME_SECTION(_read_recovered_mesh_timer);
       CONSOLE_TIMED_PRINT("Rcovering mesh");
-      getMesh().read(_app.getRecoverFileBase() + "_mesh." + _app.getRecoverFileSuffix());
+      getMesh().read(_app.getRestartRecoverFileBase() + "_mesh." +
+                     _app.getRestartRecoverFileSuffix());
     }
 
     getMesh().allow_renumbering(allow_renumbering_later);

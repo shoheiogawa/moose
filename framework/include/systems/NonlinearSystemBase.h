@@ -545,6 +545,12 @@ public:
   bool needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid) const;
 
   /**
+   * Indicated whether this system needs material properties on interfaces.
+   * @return Boolean if IntegratedBCs are active
+   */
+  bool needInterfaceMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid) const;
+
+  /**
    * Indicates whether this system needs material properties on internal sides.
    * @return Boolean if DGKernels are active
    */
@@ -663,7 +669,6 @@ public:
   FEProblemBase & _fe_problem;
   System & _sys;
   // FIXME: make these protected and create getters/setters
-  Real _last_rnorm;
   Real _last_nl_rnorm;
   Real _initial_residual_before_preset_bcs;
   Real _initial_residual_after_preset_bcs;
@@ -908,8 +913,13 @@ protected:
   /// Flag used to indicate whether we have already computed the scaling Jacobian
   bool _computed_scaling;
 
-  /// A vector to be filled by the preconditioning matrix diagonal
-  NumericVector<Number> * _pmat_diagonal;
+  /// Whether to automatically scale the variables
+  bool _automatic_scaling;
+
+  /// Whether the scaling factors should only be computed once at the beginning of the simulation
+  /// through an extra Jacobian evaluation. If this is set to false, then the scaling factors will
+  /// be computed during an extra Jacobian evaluation at the beginning of every time step.
+  bool _compute_scaling_once;
 
 private:
   /// Functors for computing residuals from undisplaced mortar constraints
@@ -931,14 +941,6 @@ private:
   std::unordered_map<std::pair<BoundaryID, BoundaryID>,
                      ComputeMortarFunctor<ComputeStage::JACOBIAN>>
       _displaced_mortar_jacobian_functors;
-
-  /// Whether to automatically scale the variables
-  bool _automatic_scaling;
-
-  /// Whether the scaling factors should only be computed once at the beginning of the simulation
-  /// through an extra Jacobian evaluation. If this is set to false, then the scaling factors will
-  /// be computed during an extra Jacobian evaluation at the beginning of every time step.
-  bool _compute_scaling_once;
 
 #ifndef MOOSE_SPARSE_AD
   /// The required size of the derivative storage array

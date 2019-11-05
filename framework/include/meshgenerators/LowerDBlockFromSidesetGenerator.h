@@ -30,9 +30,5 @@ public:
 protected:
   std::unique_ptr<MeshBase> & _input;
 
-  /// The subdomain ID of the new lower dimensional block
-  const subdomain_id_type _new_block_id;
-  /// The sidesets on which to create the lower dimensional elements
-  std::vector<boundary_id_type> _sidesets;
+  const std::vector<BoundaryName> _sideset_names;
 };
-

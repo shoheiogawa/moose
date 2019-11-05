@@ -131,7 +131,7 @@ addActionTypes(Syntax & syntax)
 
   registerMooseObjectTask("add_nodal_kernel",             NodalKernel,            false);
 
-  registerMooseObjectTask("add_material",                 Material,               false);
+  registerMooseObjectTask("add_material",                 MaterialBase,           false);
   registerMooseObjectTask("add_bc",                       BoundaryCondition,      false);
 
   registerMooseObjectTask("add_function",                 Function,               false);
@@ -182,6 +182,7 @@ addActionTypes(Syntax & syntax)
   registerTask("dynamic_object_registration", false);
   registerTask("common_output", true);
   registerTask("setup_recover_file_base", true);
+  registerTask("recover_mesh_meta_data", true);
 
   registerTask("add_bounds_vectors", false);
   registerTask("add_periodic_bc", false);
@@ -260,6 +261,7 @@ addActionTypes(Syntax & syntax)
                            "(setup_mesh)"
                            "(add_mesh_generator)"
                            "(execute_mesh_generators)"
+                           "(recover_mesh_meta_data)"
                            "(set_mesh_base)"
                            "(check_copy_nodal_vars)"
                            "(add_partitioner)"
@@ -582,9 +584,9 @@ setColorConsole(bool use_color, bool force)
 }
 
 bool _warnings_are_errors = false;
-
 bool _deprecated_is_error = false;
-
 bool _throw_on_error = false;
+bool show_trace = true;
+bool show_multiple = false;
 
 } // namespace Moose

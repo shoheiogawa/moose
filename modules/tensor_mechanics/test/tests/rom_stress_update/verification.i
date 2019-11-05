@@ -182,7 +182,7 @@
     inelastic_models = rom_stress_prediction
   [../]
   [./rom_stress_prediction]
-    type = ADLAROMCreepStressUpdate
+    type = SS316HLAROMANCEStressUpdateTest
     temperature = temperature
     effective_inelastic_strain_name = effective_creep_strain
     internal_solve_full_iteration_history = true
@@ -191,13 +191,6 @@
     immobile_dislocation_density_forcing_function = rhoi_fcn
     mobile_dislocation_density_forcing_function = rhom_fcn
     old_creep_strain_forcing_function = evm_fcn
-    rom_data = rom_data
-  [../]
-[]
-
-[UserObjects]
-  [./rom_data]
-    type = SS316LAROMData
   [../]
 []
 
@@ -223,10 +216,12 @@
   [./effective_strain_avg]
     type = ElementAverageValue
     variable = effective_creep_strain
+    outputs = console
   [../]
   [./temperature]
     type = ElementAverageValue
     variable = temperature
+    outputs = console
   [../]
   [./rhom]
     type = ElementAverageValue
@@ -239,6 +234,7 @@
   [./vonmises_stress]
     type = ElementAverageValue
     variable = vonmises_stress
+    outputs = console
   [../]
   [./creep_rate]
     type = ElementAverageValue
@@ -248,54 +244,66 @@
     type = FunctionValuePostprocessor
     function = rhom_fcn
     execute_on = 'TIMESTEP_END initial'
+    outputs = console
   [../]
   [./rhoi_in]
     type = FunctionValuePostprocessor
     function = rhoi_fcn
     execute_on = 'TIMESTEP_END initial'
+    outputs = console
   [../]
   [./vmJ2_in]
     type = FunctionValuePostprocessor
     function = vmJ2_fcn
     execute_on = 'TIMESTEP_END initial'
+    outputs = console
   [../]
   [./rhom_soln]
     type = FunctionValuePostprocessor
     function = rhom_soln_fcn
+    outputs = console
   [../]
   [./rhoi_soln]
     type = FunctionValuePostprocessor
     function = rhoi_soln_fcn
+    outputs = console
   [../]
   [./creep_rate_soln]
     type = FunctionValuePostprocessor
     function = creep_rate_soln_fcn
+    outputs = console
   [../]
 
   [./rhom_diff]
     type = FunctionValuePostprocessor
     function = rhom_diff_fcn
+    outputs = console
   [../]
   [./rhoi_diff]
     type = FunctionValuePostprocessor
     function = rhoi_diff_fcn
+    outputs = console
   [../]
   [./creep_rate_diff]
     type = FunctionValuePostprocessor
     function = creep_rate_diff_fcn
+    outputs = console
   [../]
 
   [./rhom_max_diff]
     type = TimeExtremeValue
     postprocessor = rhom_diff
+    outputs = console
   [../]
   [./rhoi_max_diff]
     type = TimeExtremeValue
     postprocessor = rhoi_diff
+    outputs = console
   [../]
   [./creep_rate_max_diff]
     type = TimeExtremeValue
     postprocessor = creep_rate_diff
+    outputs = console
   [../]
 []
 
