@@ -162,13 +162,18 @@ ImageSampler::setupImageSampler(MooseMesh & mesh)
   else if (file_suffix == "tiff" || file_suffix == "tif")
     _image = vtkSmartPointer<vtkTIFFReader>::New();
   else
-    mooseError("Un-supported file type '", file_suffix, "'");
+    mooseError("Un-supported file type: ", file_suffix);
 
   // Now that _image is set up, actually read the images
   // Indicate that data read has started
   _is_console << "Reading image(s)..." << std::endl;
 
   // Extract the data
+  for (const auto & filename : filenames)
+  {
+    if (!_image->CanReadFile(filename.c_str()))
+      mooseError("Cannot read image file: " + filename.c_str());
+  }
   _image->SetFileNames(_files);
   _image->Update();
   _data = _image->GetOutput();
