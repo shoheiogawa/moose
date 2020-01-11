@@ -11,6 +11,11 @@
 
 #include "ADMaterial.h"
 
+template <ComputeStage>
+class ADMatDiffusivity;
+
+declareADValidParams(ADMatDiffusivity);
+
 /**
  * An AD material with a controllable parameters
  */
@@ -23,7 +28,7 @@ public:
   ADMatDiffusivity(const InputParameters & parameters);
 
 protected:
-  virtual void computeQpProperties();
+  virtual void computeQpProperties() override;
 
   ADMaterialProperty(Real) & _ad_mat_diffusivity;
 
