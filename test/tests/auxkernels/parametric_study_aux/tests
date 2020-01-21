@@ -1,0 +1,9 @@
+[Tests]
+  [./test]
+    type = 'Exodiff'
+    input = 'parametric_study_aux.i'
+    exodiff = 'parametric_study_aux_out.e'
+
+    requirement = 'The system shall support parametric study with an aux variable.'
+  [../]
+[]
