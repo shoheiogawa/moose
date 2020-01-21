@@ -1,0 +1,12 @@
+[Tests]
+  issues = '#11643'
+  design = "/Markers/index.md"
+
+  [./side_neighbor_marker]
+    type = 'Exodiff'
+    input = 'side_neighbor_marker.i'
+    exodiff = 'side_neighbor_marker_out.e-s003'
+
+    requirement = "The marker system shall mark elements near side sets."
+  [../]
+[]
