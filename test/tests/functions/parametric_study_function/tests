@@ -1,0 +1,17 @@
+[Tests]
+  [./parametric_study_function]
+    type = 'Exodiff'
+    input = 'parametric_study_function.i'
+    exodiff = 'parametric_study_function_out.e'
+
+    requirement = 'The system shall support parametric study with a function.'
+  [../]
+  [./check_unique_list]
+    type = 'Exodiff'
+    input = 'parametric_study_function_unique_list.i'
+    exodiff = 'parametric_study_function_unique_list_out.e'
+
+    requirement = 'The system shall make parametric study values unique and sorted.'
+  [../]
+
+[]
