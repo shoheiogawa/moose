@@ -1,0 +1,58 @@
+[Tests]
+  [element_grid_average_in_x]
+    type = 'CSVDiff'
+    input = 'element_grid_sampler.i'
+    csvdiff = 'element_grid_sampler_out_cell_element_average_x_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to element average variables and material properties on grid cells.'
+  []
+  [element_grid_integral_in_x]
+    type = 'CSVDiff'
+    input = 'element_grid_sampler.i'
+    csvdiff = 'element_grid_sampler_out_cell_element_integral_x_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to compute element integrals of variables and material properties on grid cells.'
+  []
+  [element_grid_average_empty_cells_in_x]
+    type = 'CSVDiff'
+    input = 'element_grid_sampler.i'
+    csvdiff = 'element_grid_sampler_out_cell_element_average_x_empty_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall fill empty element-averaging cells with a specified value.'
+  []
+  [element_grid_average_in_yz]
+    type = 'CSVDiff'
+    input = 'element_grid_sampler.i'
+    csvdiff = 'element_grid_sampler_out_cell_element_average_yz_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to compute element averages of variables and material properties on grid cells.'
+  []
+  [side_grid_average_in_x]
+    type = 'CSVDiff'
+    input = 'side_grid_sampler.i'
+    csvdiff = 'side_grid_sampler_out_cell_side_average_x_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to compute side averages of variables and material properties on grid cells.'
+  []
+  [side_grid_integral_in_x]
+    type = 'CSVDiff'
+    input = 'side_grid_sampler.i'
+    csvdiff = 'side_grid_sampler_out_cell_side_integral_x_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to compute side integrals of variables and material properties on grid cells.'
+  []
+  [side_grid_average_empty_cells_in_x]
+    type = 'CSVDiff'
+    input = 'side_grid_sampler.i'
+    csvdiff = 'side_grid_sampler_out_cell_side_average_x_empty_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall fill empty side-averaging cells with a specified value.'
+  []
+  [side_grid_average_in_yz]
+    type = 'CSVDiff'
+    input = 'side_grid_sampler.i'
+    csvdiff = 'side_grid_sampler_out_cell_side_average_yz_0001.csv'
+    group = 'requirements'
+    requirement = 'MOOSE shall allow to compute side averages of variables and material properties on grid cells.'
+  []
+[]
