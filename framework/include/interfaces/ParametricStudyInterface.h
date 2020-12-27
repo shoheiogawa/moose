@@ -81,13 +81,13 @@ protected:
 template <typename T>
 ParametricStudyInterface<T>:: ParametricStudyInterface(const InputParameters & parameters)
 : T(parameters),
-  _value_list(getParam<std::vector<Real>>("value_list")),
-  _range_func_args(getParam<std::vector<Real>>("range_func")),
-  _sort(getParam<MooseEnum>("sort")),
-  _unique_list(getParam<bool>("unique_list")),
-  _unique_list_tolerance(getParam<Real>("unique_list_tolerance")),
-  _range_func_toleracne(getParam<Real>("range_func_tolerance")),
-  _indexing_tolerance(getParam<Real>("indexing_tolerance"))
+  _value_list(T::template getParam<std::vector<Real>>("value_list")),
+  _range_func_args(T::template getParam<std::vector<Real>>("range_func")),
+  _sort(T::template getParam<MooseEnum>("sort")),
+  _unique_list(T::template getParam<bool>("unique_list")),
+  _unique_list_tolerance(T::template getParam<Real>("unique_list_tolerance")),
+  _range_func_toleracne(T::template getParam<Real>("range_func_tolerance")),
+  _indexing_tolerance(T::template getParam<Real>("indexing_tolerance"))
 {
   SubProblem & subproblem = *this->template getCheckedPointerParam<SubProblem *>("_subproblem");
   // The simulation has to be transient for indexing.
