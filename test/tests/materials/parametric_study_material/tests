@@ -1,8 +1,8 @@
 [Tests]
   [./parametric_study_material]
-    type = 'Exodiff'
+    type = 'CSVDiff'
     input = 'parametric_study_material.i'
-    exodiff = 'parametric_study_material_out.e'
+    csvdiff = 'parametric_study_material_out.csv'
 
     requirement = 'The system shall support parametric study with a material property.'
   [../]

@@ -24,7 +24,7 @@
     range_func = '1.0 2.0 0.2'
     value_list = '0.8 1.2 1.3'
     mat_prop = param_mat
-    outputs = exodus
+    outputs = csv
   []
 []
 
@@ -53,12 +53,12 @@
 
 [Outputs]
   execute_on = 'timestep_end'
-  exodus = true
+  csv = true
 []
 
 [Postprocessors]
   [average_param_mat]
-    type = ElementIntegralMaterialProperty
+    type = ElementAverageMaterialProperty
     mat_prop = param_mat
   []
 []
