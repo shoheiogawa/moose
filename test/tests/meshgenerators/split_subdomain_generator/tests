@@ -1,0 +1,12 @@
+[Tests]
+  [./test]
+    type = 'Exodiff'
+    input = 'split_subdomain_generator.i'
+    cli_args = '--mesh-only'
+    exodiff = 'split_subdomain_generator_in.e'
+    mesh_mode = 'REPLICATED'
+    recover = false
+
+    requirement = 'The system shall have the ability to split subdomain based on the domain connectivity.'
+  [../]
+[]
