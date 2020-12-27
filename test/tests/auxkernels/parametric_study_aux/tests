@@ -1,8 +1,8 @@
 [Tests]
   [./test]
-    type = 'Exodiff'
+    type = 'CSVDiff'
     input = 'parametric_study_aux.i'
-    exodiff = 'parametric_study_aux_out.e'
+    csvdiff = 'parametric_study_aux_out.csv'
 
     requirement = 'The system shall support parametric study with an aux variable.'
   [../]
