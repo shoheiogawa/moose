@@ -162,17 +162,17 @@ GridSamplerInterface<T>::validParams()
 template <typename T>
 GridSamplerInterface<T>::GridSamplerInterface(const InputParameters & parameters)
   : T(parameters),
-    _calc_type(getParam<MooseEnum>("calc_type")),
-    _num_cells(getParam<std::vector<unsigned int>>("num_cells")),
-    _grid_origin(getParam<std::vector<Real>>("grid_origin")),
-    _grid_length(getParam<std::vector<Real>>("grid_length")),
+    _calc_type(T::template getParam<MooseEnum>("calc_type")),
+    _num_cells(T::template getParam<std::vector<unsigned int>>("num_cells")),
+    _grid_origin(T::template getParam<std::vector<Real>>("grid_origin")),
+    _grid_length(T::template getParam<std::vector<Real>>("grid_length")),
     _total_num_cells(std::accumulate(
           _num_cells.begin(), _num_cells.end(), 1, std::multiplies<int>())),
     _num_variables(this->coupledComponents("variables")),
     _variables(_num_variables),
-    _mat_prop_names(getParam<std::vector<std::string>>("mat_props")),
+    _mat_prop_names(T::template getParam<std::vector<std::string>>("mat_props")),
     num_mat_props(_mat_prop_names.size()),
-    _empty_cell_value(getParam<Real>("empty_cell_value")),
+    _empty_cell_value(T::template getParam<Real>("empty_cell_value")),
     _cell_id(declareVector("cell_id")),
     _cell_index_x(declareVector("cell_index_x")),
     _cell_index_y(declareVector("cell_index_y")),
@@ -211,7 +211,7 @@ GridSamplerInterface<T>::GridSamplerInterface(const InputParameters & parameters
   _mat_props.resize(num_mat_props);
   for (auto i = beginIndex(_sum_mat_props); i < num_mat_props; ++i)
   {
-    _mat_props[i] = &getMaterialProperty<Real>(_mat_prop_names[i]);
+    _mat_props[i] = &T::template getMaterialProperty<Real>(_mat_prop_names[i]);
     _sum_mat_props[i] = &declareVector(_mat_prop_names[i]);
   }
 
